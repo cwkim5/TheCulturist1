@@ -16,3 +16,10 @@ body {
   box-shadow: 0 0 50px rgba(180, 0, 30, 0.25);
   border: 1px solid #2a151d;
 }
+
+canvas {
+  touch-action: none; /* itch.io iframe 내에서 터치 시 스크롤/더블탭 확대 원천 차단 */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
