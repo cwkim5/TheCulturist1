@@ -1,25 +1,35 @@
-body {
+* {
   margin: 0;
   padding: 0;
-  background-color: #050508;
-  color: #fff;
+  box-sizing: border-box;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  height: 100dvh; /* 모바일 브라우저 주소창 제외한 실제 높이 */
+  background-color: #09080d;
   overflow: hidden;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100vh;
-  font-family: 'Georgia', serif;
+  position: fixed; /* 모바일 가로 모드 상하 스크롤 밀림 및 잘림 방지 */
+  top: 0;
+  left: 0;
+  touch-action: none; /* 터치 확대 및 브라우저 기본 제스처 차단 */
+  -webkit-user-select: none;
   user-select: none;
+  -webkit-touch-callout: none;
 }
 
 #game-container {
-  box-shadow: 0 0 50px rgba(180, 0, 30, 0.25);
-  border: 1px solid #2a151d;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 canvas {
-  touch-action: none; /* itch.io iframe 내에서 터치 시 스크롤/더블탭 확대 원천 차단 */
-  -webkit-touch-callout: none;
-  -webkit-user-select: none;
-  user-select: none;
+  display: block;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  object-fit: contain;
 }

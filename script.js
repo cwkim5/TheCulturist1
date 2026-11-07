@@ -297,6 +297,13 @@ class MainScene extends Phaser.Scene {
     this.input.mouse.disableContextMenu();
     this.physics.world.setBounds(0, 0, 1400, 1400);
     this.act1BgGfx = this.drawRitualArena();
+    this.game.events.on(Phaser.Core.Events.BLUR, () => {
+      if (!this.state.isPaused && !this.state.isGameOver) this.togglePause();
+    });
+    this.game.events.on(Phaser.Core.Events.HIDDEN, () => {
+      if (!this.state.isPaused && !this.state.isGameOver) this.togglePause();
+    });
+    this.events.once('shutdown', () => { this.game.events.off(Phaser.Core.Events.BLUR); this.game.events.off(Phaser.Core.Events.HIDDEN); });
 
     this.state = {
       form: 'MORTAL CULTIST',
@@ -1064,9 +1071,9 @@ class MainScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(100);
 
-    // ★ 좌측 HUD(x: 20~260)와 겹치지 않도록 우측 상단(중심 x: 530, 너비 420)으로 배치 & 반투명화
+    // createHUD() 내부 보스 체력바 좌표 미세 조정:
     this.bossHpBg = this.add
-      .rectangle(530, 38, 420, 16, 0x0f172a, 0.75) // 배경 투명도 0.75
+      .rectangle(500, 38, 380, 16, 0x0f172a, 0.75) // 중심 x: 500, 너비: 380 (범위: 310 ~ 690)
       .setStrokeStyle(1, 0x475569, 0.8)
       .setScrollFactor(0)
       .setDepth(100)
@@ -1074,7 +1081,7 @@ class MainScene extends Phaser.Scene {
 
     // 시작점 x = 530 - (420 / 2) = 320
     this.bossHpBar = this.add
-      .rectangle(320, 38, 420, 16, 0xb91c1c, 0.85) // 체력바 투명도 0.85
+      .rectangle(310, 38, 380, 16, 0xb91c1c, 0.85) // 시작점 x: 500 - 190 = 310
       .setScrollFactor(0)
       .setDepth(101)
       .setVisible(false)
@@ -1898,7 +1905,7 @@ class MainScene extends Phaser.Scene {
 
     if (enemy === this.boss) {
       const hpRatio = Math.max(0, enemy.hp / enemy.maxHp);
-      this.bossHpBar.width = 420 * hpRatio;
+      this.bossHpBar.width = 380 * hpRatio;
     }
 
     if (enemy.hp <= 0) {
@@ -4978,6 +4985,12 @@ class MainScene extends Phaser.Scene {
             // ★ 2단계: 본격적인 크툴루 신화 배경(Act 2 월드) 구축 및 전환!
             this.buildAct2MythosWorld();
           });
+          if (this.joyData) {
+            this.joyData.active = false;
+            this.joyData.vx = 0;
+            this.joyData.vy = 0;
+            if (this.joyThumb) this.joyThumb.setPosition(115, 475);
+          }
         }
       },
     });
@@ -5399,6 +5412,31 @@ new Phaser.Game({
   },
   physics: { default: 'arcade', arcade: { debug: false } },
   scene: [PreloadScene, MainScene],
+
+});
+
+const game = new Phaser.Game({
+  type: Phaser.AUTO,
+  width: 800,
+  height: 600,
+  parent: 'game-container',
+  scale: {
+    mode: Phaser.Scale.FIT,
+    autoCenter: Phaser.Scale.CENTER_BOTH,
+  },
+  input: {
+    activePointers: 3,
+  },
+  physics: { default: 'arcade', arcade: { debug: false } },
+  scene: [PreloadScene, MainScene],
+});
+
+// 모바일 가로/세로 회전 및 주소창 숨김 시 캔버스 스케일 강제 재계산
+window.addEventListener('resize', () => {
+  game.scale.refresh();
+});
+window.addEventListener('orientationchange', () => {
+  setTimeout(() => game.scale.refresh(), 200);
 });
 
 // =========================================================================
