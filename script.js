@@ -297,13 +297,6 @@ class MainScene extends Phaser.Scene {
     this.input.mouse.disableContextMenu();
     this.physics.world.setBounds(0, 0, 1400, 1400);
     this.act1BgGfx = this.drawRitualArena();
-    this.game.events.on(Phaser.Core.Events.BLUR, () => {
-      if (!this.state.isPaused && !this.state.isGameOver) this.togglePause();
-    });
-    this.game.events.on(Phaser.Core.Events.HIDDEN, () => {
-      if (!this.state.isPaused && !this.state.isGameOver) this.togglePause();
-    });
-    this.events.once('shutdown', () => { this.game.events.off(Phaser.Core.Events.BLUR); this.game.events.off(Phaser.Core.Events.HIDDEN); });
 
     this.state = {
       form: 'MORTAL CULTIST',
@@ -358,26 +351,32 @@ class MainScene extends Phaser.Scene {
 
     this.state.startTime = this.time.now;
 
-    this.pauseBg = this.add
-      .rectangle(400, 300, 800, 600, 0x000000, 0.6)
-      .setScrollFactor(0)
-      .setDepth(299)
-      .setVisible(false);
-
     this.pauseText = this.add
-      .text(400, 300, 'PAUSED\n[ 클릭 또는 ESC로 재개 ]', {
+      .text(400, 300, 'PAUSED', {
         fontFamily: 'Georgia, serif',
-        fontSize: '36px',
+        fontSize: '48px',
         color: '#ffffff',
         fontStyle: 'bold',
-        align: 'center',
       })
       .setOrigin(0.5)
       .setScrollFactor(0)
       .setDepth(300)
       .setVisible(false);
 
-    this.input.keyboard.on('keydown-ESC', () => this.togglePause());
+    this.input.keyboard.on('keydown-ESC', () => {
+      if (this.state.isGameOver) return;
+      this.state.isPaused = !this.state.isPaused;
+
+      if (this.state.isPaused) {
+        this.physics.world.isPaused = true;
+        this.time.paused = true;
+        this.pauseText.setVisible(true);
+      } else {
+        this.physics.world.isPaused = false;
+        this.time.paused = false;
+        this.pauseText.setVisible(false);
+      }
+    });
 
     this.spaceKey = this.input.keyboard.addKey(
       Phaser.Input.Keyboard.KeyCodes.SPACE
@@ -567,7 +566,7 @@ class MainScene extends Phaser.Scene {
         const isBtnArea = p.x > 500 && p.y > 300;
         if (isJoyArea || isBtnArea) return;
       }
-
+      
       if (p.rightButtonDown() || this.state.form === 'DAGON') {
         this.performParry();
       } else {
@@ -1071,9 +1070,9 @@ class MainScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(100);
 
-    // createHUD() 내부 보스 체력바 좌표 미세 조정:
+    // ★ 좌측 HUD(x: 20~260)와 겹치지 않도록 우측 상단(중심 x: 530, 너비 420)으로 배치 & 반투명화
     this.bossHpBg = this.add
-      .rectangle(500, 38, 380, 16, 0x0f172a, 0.75) // 중심 x: 500, 너비: 380 (범위: 310 ~ 690)
+      .rectangle(530, 38, 420, 16, 0x0f172a, 0.75) // 배경 투명도 0.75
       .setStrokeStyle(1, 0x475569, 0.8)
       .setScrollFactor(0)
       .setDepth(100)
@@ -1081,7 +1080,7 @@ class MainScene extends Phaser.Scene {
 
     // 시작점 x = 530 - (420 / 2) = 320
     this.bossHpBar = this.add
-      .rectangle(310, 38, 380, 16, 0xb91c1c, 0.85) // 시작점 x: 500 - 190 = 310
+      .rectangle(320, 38, 420, 16, 0xb91c1c, 0.85) // 체력바 투명도 0.85
       .setScrollFactor(0)
       .setDepth(101)
       .setVisible(false)
@@ -1264,15 +1263,15 @@ class MainScene extends Phaser.Scene {
         const step = this.state.emptySlashes / 25;
         this.cameras.main.shake(120 * step, 0.005 * step);
 
-        const aimAngle = this.getAimAngle();
-        const crackX = this.player.x + Math.cos(aimAngle) * 55;
-        const crackY = this.player.y + Math.sin(aimAngle) * 55;
-
+        const mouseWorld = this.cameras.main.getWorldPoint(
+          this.input.activePointer.x,
+          this.input.activePointer.y
+        );
         for (let i = 0; i < step * 2; i++) {
           const crack = this.add
             .circle(
-              crackX + Phaser.Math.Between(-15, 15),
-              crackY + Phaser.Math.Between(-15, 15),
+              mouseWorld.x + Phaser.Math.Between(-15, 15),
+              mouseWorld.y + Phaser.Math.Between(-15, 15),
               2 + step,
               0xe2e8f0,
               0.9
@@ -1505,14 +1504,14 @@ class MainScene extends Phaser.Scene {
       this.state.form === 'HASTUR'
         ? 0xfacc15
         : this.state.form === 'NYARLATHOTEP'
-          ? 0xc084fc
-          : this.state.form === 'CTHULHU'
-            ? 0x10b981
-            : this.state.form === 'CTHUGHA'
-              ? 0xf97316
-              : this.state.form === 'THE FAITHLESS'
-                ? 0xef4444
-                : 0xffffff;
+        ? 0xc084fc
+        : this.state.form === 'CTHULHU'
+        ? 0x10b981
+        : this.state.form === 'CTHUGHA'
+        ? 0xf97316
+        : this.state.form === 'THE FAITHLESS'
+        ? 0xef4444
+        : 0xffffff;
 
     const halfArc = Phaser.Math.DegToRad(GAME_CONFIG.PLAYER.DAGGER_ARC_DEG / 2);
     const range = GAME_CONFIG.PLAYER.DAGGER_RANGE;
@@ -1905,7 +1904,7 @@ class MainScene extends Phaser.Scene {
 
     if (enemy === this.boss) {
       const hpRatio = Math.max(0, enemy.hp / enemy.maxHp);
-      this.bossHpBar.width = 380 * hpRatio;
+      this.bossHpBar.width = 420 * hpRatio;
     }
 
     if (enemy.hp <= 0) {
@@ -3420,11 +3419,11 @@ class MainScene extends Phaser.Scene {
         const w = Math.sin(time * 0.012 + i * 2 + s) * (s * waveAmp);
         this.tentacleGfx.lineTo(
           this.player.x +
-          Math.cos(baseAngle) * (s * lengthStep) +
-          Math.cos(baseAngle + 1.57) * w,
+            Math.cos(baseAngle) * (s * lengthStep) +
+            Math.cos(baseAngle + 1.57) * w,
           this.player.y +
-          Math.sin(baseAngle) * (s * lengthStep) +
-          Math.sin(baseAngle + 1.57) * w
+            Math.sin(baseAngle) * (s * lengthStep) +
+            Math.sin(baseAngle + 1.57) * w
         );
       }
       this.tentacleGfx.strokePath();
@@ -4617,7 +4616,8 @@ class MainScene extends Phaser.Scene {
     this.hudForm.setText(`FORM: ${this.state.form}${suffix}`);
 
     this.hudLv.setText(
-      `HP: ${Math.floor(this.state.hp)}/${this.state.maxHp} | SACRIFICES: ${this.state.kills
+      `HP: ${Math.floor(this.state.hp)}/${this.state.maxHp} | SACRIFICES: ${
+        this.state.kills
       }`
     );
     this.hudPacifist.setText(
@@ -4771,21 +4771,6 @@ class MainScene extends Phaser.Scene {
     //this.time.paused = true;
     this.player.setTint(0x4a0008);
 
-    // ★ 1. [모바일 대응] 게임 오버 즉시 가상 조이스틱 및 액션 버튼 숨기기
-    if (this.isMobile) {
-      if (this.joyBase) this.joyBase.setVisible(false);
-      if (this.joyThumb) this.joyThumb.setVisible(false);
-      if (this.mobileButtons) {
-        this.mobileButtons.forEach((obj) => obj.setVisible(false));
-      }
-      // 조이스틱 입력 상태 초기화
-      if (this.joyData) {
-        this.joyData.active = false;
-        this.joyData.vx = 0;
-        this.joyData.vy = 0;
-      }
-    }
-
     const { width, height } = this.scale;
 
     // 게임 오버 텍스트 연출
@@ -4830,49 +4815,38 @@ class MainScene extends Phaser.Scene {
         .setDepth(300);
     }
 
-    // 모바일/PC 동적 텍스트 표시
-    const guideString = this.isMobile
-      ? '- 화면 아무 곳이나 터치하여 다시 시작 -'
-      : '- [R] 키 또는 클릭하여 처음부터 다시 시작 -';
-
+    // 처음엔 투명하게(alpha: 0) 숨겨두어 연타 중 실수로 넘어가는 것을 방지
     const restartText = this.add
-      .text(width / 2, height / 2 + 55, guideString, {
-        fontFamily: 'monospace',
-        fontSize: '14px',
-        color: '#94a3b8',
-      })
+      .text(
+        width / 2,
+        height / 2 + 50,
+        '- [R] 키 또는 클릭하여 처음부터 다시 시작 -',
+        {
+          fontFamily: 'monospace',
+          fontSize: '14px',
+          color: '#94a3b8',
+        }
+      )
       .setOrigin(0.5)
       .setScrollFactor(0)
       .setDepth(300)
       .setAlpha(0);
 
-    // ★ 2. 1.2초 후 전체 화면 터치 블록 활성화
+    // ★ 사망 후 1.2초(1200ms)가 지나야 재시작 텍스트가 나타나고 입력이 활성화됨!
     this.time.delayedCall(1200, () => {
       this.tweens.add({
         targets: restartText,
         alpha: 1,
-        duration: 350,
+        duration: 400,
       });
 
       const doRestart = () => {
-        // 중복 실행 방지
-        if (this.isRestarting) return;
-        this.isRestarting = true;
-
         this.physics.world.isPaused = false;
         this.scene.restart();
       };
 
-      // 화면 전체를 덮는 투명 터치 센서 생성 (Depth 310 - 최상위)
-      const fullScreenTouchZone = this.add
-        .zone(width / 2, height / 2, width, height)
-        .setScrollFactor(0)
-        .setDepth(310)
-        .setInteractive();
-
-      fullScreenTouchZone.once('pointerdown', doRestart);
-
-      // PC 키보드 R키 지원
+      // 1.2초 뒤부터 마우스 클릭 또는 R키 입력 허용
+      this.input.once('pointerdown', doRestart);
       this.input.keyboard.once('keydown-R', doRestart);
     });
   }
@@ -4985,12 +4959,6 @@ class MainScene extends Phaser.Scene {
             // ★ 2단계: 본격적인 크툴루 신화 배경(Act 2 월드) 구축 및 전환!
             this.buildAct2MythosWorld();
           });
-          if (this.joyData) {
-            this.joyData.active = false;
-            this.joyData.vx = 0;
-            this.joyData.vy = 0;
-            if (this.joyThumb) this.joyThumb.setPosition(115, 475);
-          }
         }
       },
     });
@@ -5142,8 +5110,6 @@ class MainScene extends Phaser.Scene {
   }
 
   setupMobileControls() {
-
-    this.mobileButtons = [];
     // ★ 1. 순수 모바일/태블릿 OS일 때만 모바일 모드로 확정
     const os = this.sys.game.device.os;
     this.isMobile = os.android || os.iOS || os.iPad || os.iPhone || os.windowsPhone;
@@ -5238,7 +5204,6 @@ class MainScene extends Phaser.Scene {
       btn.on('pointerup', () => btn.setScale(1.0).setAlpha(1.0));
       btn.on('pointerout', () => btn.setScale(1.0).setAlpha(1.0));
 
-      this.mobileButtons.push(btn, txt);
       return { btn, txt };
     };
 
@@ -5345,61 +5310,25 @@ class MainScene extends Phaser.Scene {
     return this.lastAimAngle || 0;
   }
 
-  togglePause() {
-    // 게임오버 상태이거나 포탈 진입 연출 중일 때는 일시정지 차단
-    if (this.state.isGameOver || this.state.isRestarting) return;
-
-    this.state.isPaused = !this.state.isPaused;
-
-    if (this.state.isPaused) {
-      this.physics.world.isPaused = true;
-      this.time.paused = true;
-      this.tweens.pauseAll(); // ★ 진행 중인 모든 트윈(마법진, 탄막 연출) 정지!
-
-      this.pauseBg.setVisible(true);
-      this.pauseText.setVisible(true);
-
-      // ★ 모바일 조이스틱 강제 리셋 (누른 채 일시정지 시 이동 고정 버그 방지)
-      if (this.isMobile && this.joyData) {
-        this.joyData.active = false;
-        this.joyData.vx = 0;
-        this.joyData.vy = 0;
-        if (this.joyThumb) this.joyThumb.setPosition(115, 475);
-      }
-
-      // ★ 일시정지 화면 어디든 터치/클릭하면 즉시 해제되는 최상단 터치존 생성
-      this.pauseResumeZone = this.add
-        .zone(400, 300, 800, 600)
-        .setScrollFactor(0)
-        .setDepth(310)
-        .setInteractive();
-
-      this.pauseResumeZone.once('pointerdown', () => this.togglePause());
-    } else {
-      this.physics.world.isPaused = false;
-      this.time.paused = false;
-      this.tweens.resumeAll(); // ★ 트윈 재개
-
-      this.pauseBg.setVisible(false);
-      this.pauseText.setVisible(false);
-
-      if (this.pauseResumeZone) {
-        this.pauseResumeZone.destroy();
-        this.pauseResumeZone = null;
-      }
-    }
-  }
-
 }
 
 
-const game = new Phaser.Game({
+  
+  
+
+new Phaser.Game({
   type: Phaser.AUTO,
   width: 800,
   height: 600,
   parent: 'game-container',
+  // ★ 1. 모바일 화면 크기에 맞춰 비율을 유지하며 꽉 차게 정렬
+  scale: {
+    mode: Phaser.Scale.FIT,
+    autoCenter: Phaser.Scale.CENTER_BOTH,
+  },
+  // ★ 2. 멀티터치 지원 (조이스틱 + 공격/대시 동시 입력용 포인터 3개 확보)
   input: {
-    activePointers: 3, // 모바일 멀티터치만 유지
+    activePointers: 3,
   },
   physics: { default: 'arcade', arcade: { debug: false } },
   scene: [PreloadScene, MainScene],

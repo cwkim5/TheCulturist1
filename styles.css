@@ -1,42 +1,18 @@
-* {
+body {
   margin: 0;
   padding: 0;
-  box-sizing: border-box;
-}
-
-html, body {
-  width: 100%;
-  height: 100%;
-  height: 100dvh;
-  background-color: #09080d; /* 창 바깥 여백 배경색 */
-  display: flex;
-  justify-content: center; /* 가로 정중앙 */
-  align-items: center;     /* 세로 정중앙 */
+  background-color: #050508;
+  color: #fff;
   overflow: hidden;
-  touch-action: none;
-  user-select: none;
-  -webkit-user-select: none;
-}
-
-#game-container {
   display: flex;
   justify-content: center;
   align-items: center;
-  width: 100%;
-  height: 100%;
-  padding: 24px; /* ★ 상하좌우 바깥 여백 보장 */
+  height: 100vh;
+  font-family: 'Georgia', serif;
+  user-select: none;
 }
 
-canvas {
-  display: block;
-  /* ★ 핵심: PC에선 800x600 원본 크기 고정(화질 저하 0%), 작은 모바일 화면에서만 여백을 남기고 축소 */
-  width: auto !important;
-  height: auto !important;
-  max-width: min(800px, 92vw) !important;
-  max-height: min(600px, 88dvh) !important;
-  aspect-ratio: 4 / 3;
-  
-  /* 게임 화면 테두리에 은은한 그림자와 액자선 추가 (원치 않으면 삭제 가능) */
-  box-shadow: 0 0 30px rgba(0, 0, 0, 0.85);
-  border: 1px solid #8a0000;
+#game-container {
+  box-shadow: 0 0 50px rgba(180, 0, 30, 0.25);
+  border: 1px solid #2a151d;
 }
