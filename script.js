@@ -1563,6 +1563,7 @@ class MainScene extends Phaser.Scene {
       NYARLATHOTEP: 0x4c1d95,
       HASTUR: 0x78350f,
       'THE FAITHLESS': 0x111827,
+      CTHUGHA: 0x7c2d12,
     };
 
     const edgeColor = EDGE_COLORS[this.state.form] || 0x000000;
@@ -1860,9 +1861,10 @@ class MainScene extends Phaser.Scene {
     }
   }
 
-  damageEnemy(enemy, baseDamage, hitAngle, isCounterHit = false) {
-    if (!enemy.active) return;
-    // ★ 기존의 무신앙자 배율 뒤에 전역 각성 배율(dmgMult)만 곱해주면 모든 공격에 자동 반영!
+  // hitAngle의 기본값을 null로 설정 (null이면 넉백 없음!)
+  damageEnemy(enemy, baseDamage, hitAngle = null, isCounterHit = false) {
+    if (!enemy || !enemy.active) return;
+
     let finalDmg =
       baseDamage *
       (this.state.form === 'THE FAITHLESS' ? 1.35 : 1) *
@@ -1873,43 +1875,49 @@ class MainScene extends Phaser.Scene {
         this.state.isTrueMortal && this.state.isExAwakened ? 4.2 : 3.0;
       enemy.isWindingUp = false;
       this.triggerCounterDopamine(enemy.x, enemy.y);
-    } else {
+    } else if (hitAngle !== null) {
+      // ★ 도트 데미지(hitAngle === null)일 때는 화면이 흔들리지 않도록 방지
       this.cameras.main.shake(70, 0.004);
     }
 
-    // ★ 일반 타격/카운터 불문 모든 피격 시 순간 백색 점멸 후 색상 복구
+    // ★ 피격 시 백색 점멸 및 0.09초 뒤 상태별 고유 색상 완벽 복구 (중복 코드 통합)
     enemy.setTintFill(0xffffff);
     this.time.delayedCall(90, () => {
-      if (!enemy.active) return;
-      // 보스 2페이즈면 붉은 광폭화 아우라 유지, 일반 적이면 틴트 해제
+      if (!enemy || !enemy.active) return;
+      if (enemy.isWindingUp) return; // 공격 전조 중이면 전조 색상 유지
+
       if (enemy.isBoss && enemy.phase === 2) {
         enemy.setTint(0xfca5a5);
+      } else if (enemy.isBurning) {
+        enemy.setTint(0xf97316); // 화상 상태면 주황빛 유지
       } else {
         enemy.clearTint();
       }
-      if (enemy && enemy.active && !enemy.isWindingUp) {
-        if (enemy.isBurning) enemy.setTint(0xf97316); // ★ 화상 중이면 주황색 유지!
-        else enemy.clearTint();
-      }
     });
 
-    // damageEnemy() 내부 넉백 처리 부분 수정:
     enemy.hp -= finalDmg;
-    this.bloodEmitter.explode(isCounterHit ? 45 : 14, enemy.x, enemy.y);
-    enemy.setVelocity(Math.cos(hitAngle) * 260, Math.sin(hitAngle) * 260);
-    enemy.isKnockedBack = true;
+    this.bloodEmitter.explode(
+      isCounterHit ? 45 : hitAngle !== null ? 14 : 5, // 도트 데미지는 출혈 파티클도 작게
+      enemy.x,
+      enemy.y
+    );
 
-    this.time.delayedCall(120, () => {
-      if (enemy.active) {
-        enemy.isKnockedBack = false;
-        // ★ 넉백이 끝나는 순간 브레이크! (공격 쿨타임 중 무한 활주 방지)
-        if (enemy.body) enemy.setVelocity(0, 0);
-      }
-    });
+    // ★ 핵심 수정: hitAngle이 명확히 주어졌을 때만 넉백 적용!
+    if (hitAngle !== null && hitAngle !== undefined) {
+      enemy.setVelocity(Math.cos(hitAngle) * 260, Math.sin(hitAngle) * 260);
+      enemy.isKnockedBack = true;
+
+      this.time.delayedCall(120, () => {
+        if (enemy.active) {
+          enemy.isKnockedBack = false;
+          if (enemy.body) enemy.setVelocity(0, 0);
+        }
+      });
+    }
 
     if (enemy === this.boss) {
       const hpRatio = Math.max(0, enemy.hp / enemy.maxHp);
-      this.bossHpBar.width = 420 * hpRatio; // ★ 600에서 420으로 변경!
+      this.bossHpBar.width = 420 * hpRatio;
     }
 
     if (enemy.hp <= 0) {
@@ -2089,6 +2097,7 @@ class MainScene extends Phaser.Scene {
       'THE FAITHLESS': 0xef4444,
       NODENS: 0x38bdf8,
       'MORTAL CULTIST': 0xe2e8f0,
+      CTHUGHA: 0xf97316,
     };
     const baseColor = FORM_COLORS[this.state.form] || 0xe2e8f0;
 
@@ -2211,6 +2220,7 @@ class MainScene extends Phaser.Scene {
       NYARLATHOTEP: { betaHp: 40, betaMult: 1.35, gammaMult: 2.05 },
       'THE FAITHLESS': { betaHp: 50, betaMult: 1.35, gammaMult: 2.1 },
       'MORTAL CULTIST': { betaHp: 50, betaMult: 1.4, gammaMult: 2.2 },
+      CTHUGHA: { betaHp: 50, betaMult: 1.35, gammaMult: 2.0 },
     };
 
     const st = TIER2_STATS[this.state.form] || TIER2_STATS['MORTAL CULTIST'];
@@ -2785,7 +2795,7 @@ class MainScene extends Phaser.Scene {
         });
 
         // 화상 도트 데미지 (14)
-        this.damageEnemy(enemy, 14, 0, false);
+        this.damageEnemy(enemy, 14, null, false);
 
         if (enemy.burnTimer && enemy.burnTimer.getRepeatCount() === 0) {
           enemy.isBurning = false;
@@ -2842,10 +2852,10 @@ class MainScene extends Phaser.Scene {
   }
 
   // ★ [크투가 3 - 알파/베타 전용] 공격 위치에 지속 화염 장판(Fire Zone) 설치
-  spawnCthughaFireZone(x, y) {
+  spawnCthughaFireZone(x, y, customRadius = null) {
     const isBeta = this.state.awakeningPath === 'BETA';
     // 알파(80킬)는 반경 68px, 베타(160킬)는 반경 92px로 대폭 확장!
-    const radius = isBeta ? 78 : 54;
+    const radius = customRadius || (isBeta ? 78 : 54);
 
     const zone = this.add
       .circle(x, y, radius, 0xea580c, 0.22)
@@ -2895,7 +2905,7 @@ class MainScene extends Phaser.Scene {
             Phaser.Math.Distance.Between(x, y, e.x, e.y) <=
             radius + (e.isBoss ? 22 : 0)
           ) {
-            this.damageEnemy(e, 18, 0, false);
+            this.damageEnemy(e, 18, null, false);
             if (e.active) this.applyBurn(e);
           }
         });
