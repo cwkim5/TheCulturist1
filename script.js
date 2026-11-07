@@ -5393,50 +5393,16 @@ class MainScene extends Phaser.Scene {
 }
 
 
-
-
-
-new Phaser.Game({
-  type: Phaser.AUTO,
-  width: 800,
-  height: 600,
-  parent: 'game-container',
-  // ★ 1. 모바일 화면 크기에 맞춰 비율을 유지하며 꽉 차게 정렬
-  scale: {
-    mode: Phaser.Scale.FIT,
-    autoCenter: Phaser.Scale.CENTER_BOTH,
-  },
-  // ★ 2. 멀티터치 지원 (조이스틱 + 공격/대시 동시 입력용 포인터 3개 확보)
-  input: {
-    activePointers: 3,
-  },
-  physics: { default: 'arcade', arcade: { debug: false } },
-  scene: [PreloadScene, MainScene],
-
-});
-
 const game = new Phaser.Game({
   type: Phaser.AUTO,
   width: 800,
   height: 600,
   parent: 'game-container',
-  scale: {
-    mode: Phaser.Scale.FIT,
-    autoCenter: Phaser.Scale.CENTER_BOTH,
-  },
   input: {
-    activePointers: 3,
+    activePointers: 3, // 모바일 멀티터치만 유지
   },
   physics: { default: 'arcade', arcade: { debug: false } },
   scene: [PreloadScene, MainScene],
-});
-
-// 모바일 가로/세로 회전 및 주소창 숨김 시 캔버스 스케일 강제 재계산
-window.addEventListener('resize', () => {
-  game.scale.refresh();
-});
-window.addEventListener('orientationchange', () => {
-  setTimeout(() => game.scale.refresh(), 200);
 });
 
 // =========================================================================
