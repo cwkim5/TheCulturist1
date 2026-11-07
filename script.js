@@ -282,6 +282,69 @@ class PreloadScene extends Phaser.Scene {
       formGfx.generateTexture(`tex_${formName}`, 32, 32);
     }
     formGfx.destroy();
+
+    // ==========================================
+    // [Act 2 보스 텍스처] THE GREAT DEEP ONE (84x84) & 가시 탄환 (16x16)
+    // ==========================================
+    const gdoGfx = this.make.graphics({ x: 0, y: 0, add: false });
+
+    // 1) 거대한 톱니 측면 지느러미 (심해 암청색 + 선혈빛 테두리)
+    gdoGfx.fillStyle(0x022c22, 1);
+    gdoGfx.lineStyle(2, 0xef4444, 0.85);
+    gdoGfx.fillTriangle(36, 42, 10, 4, 58, 22);
+    gdoGfx.strokeTriangle(36, 42, 10, 4, 58, 22);
+    gdoGfx.fillTriangle(36, 42, 10, 80, 58, 62);
+    gdoGfx.strokeTriangle(36, 42, 10, 80, 58, 62);
+
+    // 2) 비대화된 중갑 비늘 몸통
+    gdoGfx.fillStyle(0x064e3b, 1);
+    gdoGfx.lineStyle(3, 0x10b981, 1);
+    gdoGfx.fillEllipse(40, 42, 58, 42);
+    gdoGfx.strokeEllipse(40, 42, 58, 42);
+
+    // 3) 전방(우측)으로 찢어진 아가리와 날카로운 이빨들
+    gdoGfx.fillStyle(0x450a0a, 1);
+    gdoGfx.fillCircle(58, 42, 12);
+    gdoGfx.fillStyle(0xf8fafc, 1);
+    for (let wy = 32; wy <= 52; wy += 5) {
+      gdoGfx.fillTriangle(62, wy - 2, 70, wy, 62, wy + 2);
+    }
+
+    // 4) 붉게 충혈된 4개의 포식자 안구
+    gdoGfx.fillStyle(0xdc2626, 1);
+    [
+      [52, 29, 4],
+      [52, 55, 4],
+      [42, 24, 3],
+      [42, 60, 3],
+    ].forEach(([ex, ey, r]) => {
+      gdoGfx.fillCircle(ex, ey, r);
+      gdoGfx.fillStyle(0xfef08a, 1);
+      gdoGfx.fillCircle(ex + 1, ey, 1.5);
+      gdoGfx.fillStyle(0xdc2626, 1);
+    });
+
+    // 5) 이마 앞으로 뻗어 나온 심해 아귀 등불(Angler Lure) 촉수
+    gdoGfx.lineStyle(2.5, 0x34d399, 1);
+    gdoGfx.beginPath();
+    gdoGfx.moveTo(56, 42);
+    gdoGfx.lineTo(72, 36);
+    gdoGfx.lineTo(78, 42);
+    gdoGfx.strokePath();
+    gdoGfx.fillStyle(0xfef08a, 1);
+    gdoGfx.fillCircle(79, 42, 4.5); // 발광하는 등불 코어
+
+    gdoGfx.generateTexture('great_deep_one', 84, 84);
+    gdoGfx.destroy();
+
+    // [가시 모양 삼각형 탄환] (16x16, 우측 0 라디안 방향을 바라보도록 설계)
+    const thornGfx = this.make.graphics({ x: 0, y: 0, add: false });
+    thornGfx.fillStyle(0x10b981, 1);
+    thornGfx.lineStyle(1.5, 0xa7f3d0, 1);
+    thornGfx.fillTriangle(15, 8, 2, 2, 2, 14);
+    thornGfx.strokeTriangle(15, 8, 2, 2, 2, 14);
+    thornGfx.generateTexture('thorn_bolt', 16, 16);
+    thornGfx.destroy();
   }
 }
 
@@ -346,7 +409,9 @@ class MainScene extends Phaser.Scene {
         const py = this.lastBossPos ? this.lastBossPos.y : 700;
         this.startAct2Phase(px, py);
       },
+      150: () => this.triggerWaveEscalation2(), // ★ 150킬: 공허의 침식 & 2막 적 강화!
       160: () => this.spawnDualAct2Shrines(), // ★ 160킬: 베타(β) / 감마(γ) 대칭 제단 소환
+      200: () => this.spawnGreatDeepOne(), // ★ 200킬: 그레이트 딥 원 강림!
     };
 
     this.state.startTime = this.time.now;
@@ -370,10 +435,12 @@ class MainScene extends Phaser.Scene {
       if (this.state.isPaused) {
         this.physics.world.isPaused = true;
         this.time.paused = true;
+        this.tweens.pauseAll(); // 트윈 일시정지
         this.pauseText.setVisible(true);
       } else {
         this.physics.world.isPaused = false;
         this.time.paused = false;
+        this.tweens.resumeAll(); // 트윈 재개
         this.pauseText.setVisible(false);
       }
     });
@@ -999,46 +1066,161 @@ class MainScene extends Phaser.Scene {
     }
   }
 
-  // ★ [히든 각성: 니알라토텝] 30킬 달성 시 대시와 패링을 한 번도 안 썼다면 발동!
+  // ★ [히든 각성: 니알라토텝] 30킬 무대시/무패링 달성 시 강림 연출
   checkNyarlathotepEvolution() {
     if (
       this.state.form === 'MORTAL CULTIST' &&
       this.state.dashesUsed === 0 &&
       this.state.parriesAttempted === 0
     ) {
-      // 기존 제단이 남아있다면 파괴
       if (this.shrines) this.shrines.clear(true, true);
 
-      this.cameras.main.flash(800, 147, 51, 234);
-      this.cameras.main.shake(600, 0.03);
+      const px = this.player.x;
+      const py = this.player.y;
 
-      this.awakenNyarlathotep();
-
-      // 화면 중앙 알림 연출
-      const alertText = this.add
-        .text(
-          this.cameras.main.centerX,
-          this.cameras.main.centerY - 50,
-          '[ 기어오는 혼돈의 부름 ]\n속박을 견뎌낸 자에게 심연의 그림자가 깃듭니다.',
-          {
-            fontFamily: 'monospace',
-            fontSize: '22px',
-            color: '#c084fc',
-            align: 'center',
-            stroke: '#000000',
-            strokeThickness: 5,
-          }
-        )
-        .setOrigin(0.5)
-        .setDepth(200);
+      // 1. 순간적인 시간 정지(슬로우 모션) 및 암흑 침식 오버레이
+      this.physics.world.timeScale = 4.0;
+      const darkVeil = this.add
+        .rectangle(400, 300, 800, 600, 0x090414, 0.85)
+        .setScrollFactor(0)
+        .setDepth(180)
+        .setAlpha(0);
 
       this.tweens.add({
-        targets: alertText,
-        y: alertText.y - 40,
+        targets: darkVeil,
+        alpha: 1,
+        duration: 250,
+        yoyo: true,
+        hold: 650,
+        onComplete: () => darkVeil.destroy(),
+      });
+
+      // 2. 플레이어 주변 공간이 찢어지는 비유클리드 보랏빛 균열선 8갈래
+      const riftGfx = this.add
+        .graphics()
+        .setDepth(185)
+        .setBlendMode(Phaser.BlendModes.ADD);
+
+      for (let i = 0; i < 8; i++) {
+        const a = (i * Math.PI) / 4 + Phaser.Math.FloatBetween(-0.2, 0.2);
+        const len = Phaser.Math.Between(90, 180);
+        riftGfx.lineStyle(Phaser.Math.Between(2, 4), 0xc084fc, 0.9);
+        riftGfx.lineBetween(
+          px - Math.cos(a) * (len * 0.4),
+          py - Math.sin(a) * (len * 0.4),
+          px + Math.cos(a) * len,
+          py + Math.sin(a) * len
+        );
+      }
+
+      this.tweens.add({
+        targets: riftGfx,
         alpha: 0,
-        duration: 3500,
-        ease: 'Power2',
-        onComplete: () => alertText.destroy(),
+        duration: 850,
+        ease: 'Cubic.easeOut',
+        onComplete: () => riftGfx.destroy(),
+      });
+
+      // 3. 어둠 속에서 차례대로 떠지는 '혼돈의 외눈(Chaos Eyes)' 연출
+      for (let i = 0; i < 9; i++) {
+        this.time.delayedCall(i * 55, () => {
+          const dist = Phaser.Math.Between(45, 160);
+          const ang = Phaser.Math.FloatBetween(0, Math.PI * 2);
+          const ex = px + Math.cos(ang) * dist;
+          const ey = py + Math.sin(ang) * dist;
+
+          const eyeOuter = this.add
+            .ellipse(ex, ey, 28, 12, 0xa855f7, 0.9)
+            .setBlendMode(Phaser.BlendModes.ADD)
+            .setDepth(186)
+            .setScale(0);
+          const eyePupil = this.add
+            .ellipse(ex, ey, 4, 12, 0xffffff, 1)
+            .setDepth(187)
+            .setScale(0);
+
+          this.tweens.add({
+            targets: [eyeOuter, eyePupil],
+            scaleX: 1.2,
+            scaleY: 1.2,
+            duration: 180,
+            yoyo: true,
+            hold: 220,
+            onComplete: () => {
+              eyeOuter.destroy();
+              eyePupil.destroy();
+            },
+          });
+        });
+      }
+
+      // 4. 0.55초 뒤 본 각성 폭발 및 주변 적 강제 넉백 + 혼돈 낙인 일제 부여
+      this.time.delayedCall(550, () => {
+        this.physics.world.timeScale = 1.0;
+        this.cameras.main.flash(700, 168, 85, 247);
+        this.cameras.main.shake(650, 0.035);
+
+        this.awakenNyarlathotep();
+
+        // 이중 공허 충격파 링
+        [0x9333ea, 0xe879f9].forEach((col, idx) => {
+          const ring = this.add
+            .circle(px, py, 20, col, 0.35)
+            .setStrokeStyle(4 - idx, 0xffffff, 0.9)
+            .setBlendMode(Phaser.BlendModes.ADD)
+            .setDepth(190);
+
+          this.tweens.add({
+            targets: ring,
+            scale: 13 + idx * 4,
+            alpha: 0,
+            duration: 550 + idx * 120,
+            ease: 'Cubic.easeOut',
+            onComplete: () => ring.destroy(),
+          });
+        });
+
+        // 주변 적들을 밀쳐내며 동시에 혼돈 낙인 2스택씩 강제 주입!
+        this.enemies.getChildren().forEach((e) => {
+          if (!e.active) return;
+          const pushAngle = Phaser.Math.Angle.Between(px, py, e.x, e.y);
+          e.setVelocity(Math.cos(pushAngle) * 480, Math.sin(pushAngle) * 480);
+          e.isKnockedBack = true;
+          this.addChaosMark(e, 2);
+          this.time.delayedCall(250, () => {
+            if (e.active) e.isKnockedBack = false;
+          });
+        });
+
+        // 묵직하고 간결한 영문/한글 선언 배너
+        const banner = this.add
+          .text(
+            this.cameras.main.centerX,
+            this.cameras.main.centerY - 70,
+            'THE CRAWLING CHAOS\n[ 기어오는 혼돈 : 니알라토텝 ]',
+            {
+              fontFamily: 'Georgia, serif',
+              fontSize: '26px',
+              color: '#e879f9',
+              align: 'center',
+              fontStyle: 'bold',
+              stroke: '#090414',
+              strokeThickness: 6,
+            }
+          )
+          .setOrigin(0.5)
+          .setScrollFactor(0)
+          .setDepth(200);
+
+        this.tweens.add({
+          targets: banner,
+          y: banner.y - 30,
+          alpha: 0,
+          delay: 1600,
+          duration: 1000,
+          ease: 'Power2',
+          onComplete: () => banner.destroy(),
+        });
       });
     }
   }
@@ -1186,6 +1368,49 @@ class MainScene extends Phaser.Scene {
             ease: 'Sine.easeOut',
             onComplete: () => p.destroy(),
           });
+        }
+      }
+    }
+    // ★ [무신앙자-β] 혈웅덩이 밟기 판정 및 광기 게이지 처리
+    if (this.state.form === 'THE FAITHLESS' && this.state.awakeningPath === 'BETA') {
+      if (this.bloodPools) {
+        let steppingOnBlood = false;
+        
+        for (const pool of this.bloodPools) {
+          if (pool.active && Phaser.Math.Distance.Between(this.player.x, this.player.y, pool.x, pool.y) < 35) {
+            steppingOnBlood = true;
+            break;
+          }
+        }
+        
+        // 장판을 밟고 있다면 현재 시간 기준 3초(3000ms) 뒤로 광기 버프 지속시간 연장
+        if (steppingOnBlood) {
+          this.state.isMadness = true;
+          this.state.madnessEndTime = time + 3000;
+        }
+      }
+
+      // 광기(Madness) 상태 유지 및 시각 연출
+      if (this.state.isMadness) {
+        if (time > this.state.madnessEndTime) {
+          this.state.isMadness = false;
+          this.player.clearTint();
+          this.restoreFormTint();
+        } else {
+          // 몸에서 붉은 기운이 끓어오르는 연출
+          if (Math.random() < 0.12) this.player.setTint(0xff0000);
+          else this.restoreFormTint();
+
+          // 끓어오르는 핏방울 파티클
+          if (Math.random() < 0.35) {
+            const bp = this.add.circle(
+              this.player.x + Phaser.Math.Between(-15, 15), 
+              this.player.y + Phaser.Math.Between(-15, 15), 
+              Math.random() * 3 + 1.5, 0xdc2626, 0.85
+            ).setDepth(11);
+            
+            this.tweens.add({ targets: bp, y: bp.y - 25, alpha: 0, duration: 450, onComplete: () => bp.destroy() });
+          }
         }
       }
     }
@@ -1589,65 +1814,90 @@ class MainScene extends Phaser.Scene {
       }
     }
 
-    // 무신앙자 광역 핏빛 참격 (80킬 초월 시 X자 십자 교차 참격!)
     if (this.state.form === 'THE FAITHLESS') {
+      const isBeta = this.state.awakeningPath === 'BETA';
+      const isGamma = this.state.awakeningPath === 'GAMMA';
+      const isOmega = this.state.awakeningTier >= 3;
+
       const slashX = this.player.x + Math.cos(angle) * 48;
       const slashY = this.player.y + Math.sin(angle) * 48;
 
-      const slash1 = this.add
-        .ellipse(slashX, slashY, 105, 32, 0xb91c1c, 1)
-        .setRotation(angle)
-        .setDepth(14);
-      this.tweens.add({
-        targets: slash1,
-        scaleX: 1.45,
-        scaleY: 2.3,
-        alpha: 0,
-        duration: 150,
-        ease: 'Quad.easeOut',
-        onComplete: () => slash1.destroy(),
-      });
+      // 1. [기본] 넓은 반원형 핏빛 참격
+      const slash1 = this.add.ellipse(slashX, slashY, 105, 32, 0xb91c1c, 1).setRotation(angle).setDepth(14);
+      this.tweens.add({ targets: slash1, scaleX: 1.45, scaleY: 2.3, alpha: 0, duration: 150, ease: 'Quad.easeOut', onComplete: () => slash1.destroy() });
 
+      // 2. [80킬 알파(-α)] 십자(X) 교차 참격 추가
       if (this.state.isExAwakened) {
-        const slash2 = this.add
-          .ellipse(slashX, slashY, 115, 26, 0xef4444, 0.9)
-          .setRotation(angle + Math.PI / 2.2)
-          .setBlendMode(Phaser.BlendModes.ADD)
-          .setDepth(15);
-        this.tweens.add({
-          targets: slash2,
-          scaleX: 1.6,
-          scaleY: 2.5,
-          alpha: 0,
-          duration: 170,
-          ease: 'Quad.easeOut',
-          onComplete: () => slash2.destroy(),
-        });
+        const slash2 = this.add.ellipse(slashX, slashY, 115, 26, 0xef4444, 0.9).setRotation(angle + Math.PI / 2.2).setBlendMode(Phaser.BlendModes.ADD).setDepth(15);
+        this.tweens.add({ targets: slash2, scaleX: 1.6, scaleY: 2.5, alpha: 0, duration: 170, ease: 'Quad.easeOut', onComplete: () => slash2.destroy() });
       }
 
-      const hitRange = this.state.isExAwakened ? 88 : 68;
-      const baseDmg = this.state.isExAwakened ? 68 : 55;
+      // 3. [160킬 베타(-β): The Butcher] 피 장판 유무에 따른 공격 변화!
+      if (isBeta) {
+        if (this.state.isMadness) {
+          // 장판 밟음(광기 폭주): 피의 부메랑 투척!
+          this.fireBloodBoomerang(angle);
+        } else {
+          // 장판 없음(기본): 전방을 휩쓰는 거대한 피의 검기(혈사파) 발사!
+          const bloodWave = this.add.ellipse(slashX, slashY, 130, 15, 0xdc2626, 0.9)
+            .setRotation(angle + Math.PI / 2).setBlendMode(Phaser.BlendModes.ADD).setDepth(14);
+          
+          this.tweens.add({
+            targets: bloodWave,
+            x: slashX + Math.cos(angle) * 280,
+            y: slashY + Math.sin(angle) * 280,
+            scaleX: 1.8, scaleY: 2.5, alpha: 0,
+            duration: 350, ease: 'Cubic.easeOut',
+            onComplete: () => bloodWave.destroy()
+          });
+          
+          // 혈사파 비행 경로 광역 타격 (사거리 140 반경 내 65 데미지)
+          this.applyAreaDamage(slashX + Math.cos(angle) * 140, slashY + Math.sin(angle) * 140, 160, angle, 65);
+        }
+      }
+
+      // 4. [200킬 오메가(-Ω): GodSlayer] 기본적으로 혈사파 탑재
+      if (isOmega && !isBeta) { 
+        const bloodWave = this.add.ellipse(slashX, slashY, 150, 18, 0xef4444, 0.95)
+          .setRotation(angle + Math.PI / 2).setBlendMode(Phaser.BlendModes.ADD).setDepth(14);
+        this.tweens.add({
+          targets: bloodWave, x: slashX + Math.cos(angle) * 350, y: slashY + Math.sin(angle) * 350,
+          scaleX: 2.2, scaleY: 3.0, alpha: 0, duration: 320, ease: 'Cubic.easeOut', onComplete: () => bloodWave.destroy()
+        });
+        this.applyAreaDamage(slashX + Math.cos(angle) * 175, slashY + Math.sin(angle) * 175, 180, angle, 85);
+      }
+
+      // 5. 근접 타격 판정 및 데미지 연산 (감마는 사거리와 화력이 극대화)
+      const hitRange = isGamma ? 115 : (this.state.isExAwakened ? 88 : 68);
+      const baseDmg = isGamma ? 85 : (this.state.isExAwakened ? 68 : 55);
 
       const nearby = [...this.enemies.getChildren()];
       nearby.forEach((e) => {
         if (!e.active) return;
         const effectiveRadius = hitRange + (e.isBoss ? 24 : 0);
-        if (
-          Phaser.Math.Distance.Between(slashX, slashY, e.x, e.y) <=
-          effectiveRadius
-        ) {
+        
+        if (Phaser.Math.Distance.Between(slashX, slashY, e.x, e.y) <= effectiveRadius) {
+          // 본체 타격 데미지
           this.damageEnemy(e, baseDmg, angle, e.isWindingUp);
-          const healChance = this.state.isExAwakened ? 18 : 10;
-          if (
-            Phaser.Math.Between(1, 100) <= healChance &&
-            this.state.hp < this.state.maxHp
-          ) {
-            this.state.hp = Math.min(this.state.maxHp, this.state.hp + 2);
+
+          // ★ 분기별 흡혈률 연산: 베타는 35%, 오메가는 45%, 감마는 리스크(10%)
+          const healChance = isOmega ? 45 : (isBeta ? 35 : (isGamma ? 10 : 18));
+          const healAmt = isOmega ? 4 : (isBeta ? 3 : 2);
+          
+          if (Phaser.Math.Between(1, 100) <= healChance && this.state.hp < this.state.maxHp) {
+            this.state.hp = Math.min(this.state.maxHp, this.state.hp + healAmt);
             this.updateHUD();
+          }
+
+          // [200킬 오메가(-Ω)] 타격당한 적 내부에서 핏빛 십자가 폭발
+          if (isOmega && this.triggerOmegaBloodCross) {
+            this.triggerOmegaBloodCross(e.x, e.y);
           }
         }
       });
     }
+
+      
     // ★ [크투가 평타] 화상 부여 + 화상 적 타격 시 화염 링 폭발
     else if (this.state.form === 'CTHUGHA') {
       this.enemies.getChildren().forEach((e) => {
@@ -1857,6 +2107,11 @@ class MainScene extends Phaser.Scene {
       (this.state.form === 'THE FAITHLESS' ? 1.35 : 1) *
       (this.state.dmgMult || 1);
 
+    // ★ 2. 그레이트 딥 원 특성: 받는 피해 70% 적용 (30% 피해 감소)
+    if (enemy.isGreatDeepOne) {
+      finalDmg *= 0.7;
+    }
+
     if (isCounterHit) {
       finalDmg *=
         this.state.isTrueMortal && this.state.isExAwakened ? 4.2 : 3.0;
@@ -1889,8 +2144,8 @@ class MainScene extends Phaser.Scene {
       enemy.y
     );
 
-    // ★ 핵심 수정: hitAngle이 명확히 주어졌을 때만 넉백 적용!
-    if (hitAngle !== null && hitAngle !== undefined) {
+    // ★ 3. 넉백 처리부에 !enemy.knockbackImmune 조건 추가 (넉백 완전 면역!)
+    if (hitAngle !== null && hitAngle !== undefined && !enemy.knockbackImmune) {
       enemy.setVelocity(Math.cos(hitAngle) * 260, Math.sin(hitAngle) * 260);
       enemy.isKnockedBack = true;
 
@@ -1961,9 +2216,12 @@ class MainScene extends Phaser.Scene {
       this.spawnBurningSoul(enemy.x, enemy.y);
     }
 
-    this.bloodDecalGfx
-      .fillStyle(0x450a0a, 0.75)
-      .fillCircle(enemy.x, enemy.y, Phaser.Math.Between(10, 22));
+    // ★ [무신앙자-β (The Butcher)] 적 처치 시 8초간 유지되는 피 장판 생성
+    if (this.state.form === 'THE FAITHLESS' && this.state.awakeningPath === 'BETA') {
+      this.spawnBloodPool(enemy.x, enemy.y);
+    }
+
+    this.bloodDecalGfx.fillStyle(0x450a0a, 0.75).fillCircle(enemy.x, enemy.y, Phaser.Math.Between(10, 22));
 
     // ★ 고정값 0.7 대신 this.state.orbDropRate 사용 (감마 선택 시 0.35로 작동!)
     if (Math.random() < (this.state.orbDropRate ?? 0.7)) {
@@ -2067,48 +2325,45 @@ class MainScene extends Phaser.Scene {
     }
   }
 
-  // ★ [160킬 이벤트] Act 2 심연의 눈 좌우 대칭 제단 (β vs γ) 소환
+  // ★ [160킬 이벤트] Act 2 심연의 눈 좌우 대칭 제단 (미니멀 룬 버전)
   spawnDualAct2Shrines() {
     if (this.state.awakeningTier >= 2) return;
 
     const cx = 700;
     const cy = 700;
-    const offsetX = 210; // 중앙 심연의 눈(가로폭 480) 양 끝자락 대칭 거리
+    const offsetX = 210;
 
-    // 현재 폼의 고유 테마 색상 추출
     const FORM_COLORS = {
       HASTUR: 0xfacc15,
       NYARLATHOTEP: 0xa855f7,
       CTHULHU: 0x10b981,
+      CTHUGHA: 0xf97316,
       DAGON: 0x0ea5e9,
       'THE FAITHLESS': 0xef4444,
       NODENS: 0x38bdf8,
       'MORTAL CULTIST': 0xe2e8f0,
-      CTHUGHA: 0xf97316,
     };
     const baseColor = FORM_COLORS[this.state.form] || 0xe2e8f0;
 
-    // 좌측(BETA: 안정) / 우측(GAMMA: 광기) 대칭 설정
+    // 텍스트를 단 하나의 심볼(β / γ)로 극도로 절제
     const dualConfigs = [
       {
         tierType: 'BETA',
-        x: cx - offsetX, // (490, 700) 좌측 제단
+        x: cx - offsetX,
         y: cy,
-        strokeColor: 0xe2e8f0, // 차분한 백은색 테두리
+        strokeColor: 0xe2e8f0,
         coreColor: baseColor,
-        label: '[ β : 지배와 안정 ]',
-        subLabel: 'HP 대폭 증가 · 화력 상승',
-        labelColor: '#bae6fd',
+        symbol: 'β',
+        symbolColor: '#e2e8f0',
       },
       {
         tierType: 'GAMMA',
-        x: cx + offsetX, // (910, 700) 우측 제단
+        x: cx + offsetX,
         y: cy,
-        strokeColor: 0xff003c, // 핏빛 광기 테두리
+        strokeColor: 0xff003c,
         coreColor: baseColor,
-        label: '[ γ : 광기와 파멸 ]',
-        subLabel: 'HP 대폭 삭감 · 극한의 화력',
-        labelColor: '#fda4af',
+        symbol: 'γ',
+        symbolColor: '#ff1e42',
       },
     ];
 
@@ -2116,61 +2371,60 @@ class MainScene extends Phaser.Scene {
     this.cameras.main.flash(350, 16, 185, 129);
 
     dualConfigs.forEach((cfg) => {
-      // 1) 메인 제단 원형 베이스 (현재 폼 색상 반영)
+      // 1) 제단 외곽 마법진
       const shrine = this.add
-        .circle(cfg.x, cfg.y, 32, cfg.coreColor, 0.25)
-        .setStrokeStyle(3.5, cfg.strokeColor, 0.95)
+        .circle(cfg.x, cfg.y, 30, cfg.coreColor, 0.2)
+        .setStrokeStyle(3, cfg.strokeColor, 0.9)
         .setDepth(5);
 
       this.physics.add.existing(shrine, true);
       shrine.tierType = cfg.tierType;
 
-      // 2) 내부 코어 링 (베타는 정적인 이중 링, 감마는 붉은 핵)
+      // 2) 내부 코어
       const innerCore = this.add
         .circle(
           cfg.x,
           cfg.y,
-          14,
+          12,
           cfg.tierType === 'GAMMA' ? 0xff003c : cfg.coreColor,
-          0.55
+          0.5
         )
         .setBlendMode(Phaser.BlendModes.ADD)
         .setDepth(6);
 
-      // 3) 제단 상단 안내 텍스트
-      const titleTxt = this.add
-        .text(cfg.x, cfg.y - 52, cfg.label, {
-          fontFamily: 'monospace',
-          fontSize: '13px',
-          color: cfg.labelColor,
-          fontStyle: 'bold',
+      // 3) 설명충 텍스트 대신 제단 중앙/상단에 떠오르는 고대 각인 심볼 1개
+      const runeSymbol = this.add
+        .text(cfg.x, cfg.y - 44, cfg.symbol, {
+          fontFamily: 'Georgia, serif',
+          fontSize: '26px',
+          color: cfg.symbolColor,
+          fontStyle: 'italic bold',
           stroke: '#000000',
-          strokeThickness: 4,
+          strokeThickness: 5,
         })
         .setOrigin(0.5)
         .setDepth(15);
 
-      const subTxt = this.add
-        .text(cfg.x, cfg.y - 35, cfg.subLabel, {
-          fontFamily: 'monospace',
-          fontSize: '11px',
-          color: '#cbd5e1',
-          stroke: '#000000',
-          strokeThickness: 3,
-        })
-        .setOrigin(0.5)
-        .setDepth(15);
-
-      // 제단 철거 시 부속 오브젝트들도 함께 삭제하기 위해 묶어둠
-      shrine.decorations = [innerCore, titleTxt, subTxt];
+      shrine.decorations = [innerCore, runeSymbol];
       this.shrines.add(shrine);
 
-      // 4) 맥동 연출: 베타는 느리고 안정적인 호흡, 감마는 빠르고 격렬한 요동
+      // 제단 맥동
       this.tweens.add({
         targets: [shrine, innerCore],
-        scale: cfg.tierType === 'GAMMA' ? 1.25 : 1.12,
-        alpha: cfg.tierType === 'GAMMA' ? 0.75 : 0.45,
+        scale: cfg.tierType === 'GAMMA' ? 1.22 : 1.1,
+        alpha: cfg.tierType === 'GAMMA' ? 0.7 : 0.4,
         duration: cfg.tierType === 'GAMMA' ? 420 : 1000,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+
+      // 심볼이 위아래로 유령처럼 부유하는 연출
+      this.tweens.add({
+        targets: runeSymbol,
+        y: cfg.y - 50,
+        alpha: 0.65,
+        duration: 900,
         yoyo: true,
         repeat: -1,
         ease: 'Sine.easeInOut',
@@ -2179,9 +2433,7 @@ class MainScene extends Phaser.Scene {
 
     if (this.hudGuide) {
       this.hudGuide
-        .setText(
-          '⚖️ 심연의 눈 양 끝에 두 갈래의 초월 제단(β / γ)이 솟아올랐습니다. 하나를 타격하십시오.'
-        )
+        .setText('⚖️ 심연의 눈 양 끝에 두 갈래의 제단(β / γ)이 솟아올랐습니다.')
         .setColor('#6ee7b7');
     }
   }
@@ -2248,6 +2500,15 @@ class MainScene extends Phaser.Scene {
         )
         .setColor('#f43f5e');
     }
+
+    if (this.state.form === 'THE FAITHLESS') {
+      if (tierType === 'BETA') {
+        this.hudGuide.setText(`★ [The Butcher] 피의 검기가 빗발칩니다! 흡혈귀처럼 적을 도륙하십시오. (데미지 x${st.betaMult})`).setColor('#ef4444');
+      } else {
+        this.hudGuide.setText(`⚠️ [The Judgement] 이단 심문관들을 직접 단죄합니다! 공격 속도가 한계를 돌파합니다. (데미지 x${st.gammaMult})`).setColor('#f43f5e');
+      }
+    }
+    
 
     // 3. 플레이어 중심 각성 충격파 링 연출 & 주변 적 넉백
     const ringColor = tierType === 'GAMMA' ? 0xff003c : 0x38bdf8;
@@ -3144,6 +3405,105 @@ class MainScene extends Phaser.Scene {
     this.updateHUD();
   }
 
+  spawnBloodPool(x, y) {
+    if (!this.bloodPools) this.bloodPools = [];
+
+    // 바닥에 깔리는 선혈 장판
+    const pool = this.add.circle(x, y, 35, 0x991b1b, 0.45)
+      .setStrokeStyle(3, 0xdc2626, 0.7)
+      .setDepth(3);
+
+    // 숨쉬듯 꿀렁거리는 연출
+    this.tweens.add({
+      targets: pool,
+      scale: 1.15,
+      alpha: 0.25,
+      duration: 800,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut'
+    });
+
+    this.bloodPools.push(pool);
+
+    // 8초 뒤 서서히 굳으며 소멸
+    this.time.delayedCall(8000, () => {
+      this.tweens.add({
+        targets: pool,
+        alpha: 0,
+        duration: 800,
+        onComplete: () => {
+          this.bloodPools = this.bloodPools.filter(p => p !== pool);
+          pool.destroy();
+        }
+      });
+    });
+  }
+
+  fireBloodBoomerang(angle) {
+    this.cameras.main.shake(120, 0.012);
+
+    const bx = this.player.x;
+    const by = this.player.y;
+    const dist = 320; // 부메랑 비행 거리
+    const tx = bx + Math.cos(angle) * dist;
+    const ty = by + Math.sin(angle) * dist;
+
+    // 부메랑(초승달) 그래픽 그리기
+    const bGfx = this.add.graphics();
+    bGfx.fillStyle(0xdc2626, 0.95);
+    bGfx.lineStyle(2, 0xffa5a5, 1);
+    bGfx.beginPath();
+    bGfx.arc(0, 0, 24, -Math.PI / 1.5, Math.PI / 1.5, false); // 바깥쪽 둥근 날
+    bGfx.arc(0, 0, 12, Math.PI / 1.5, -Math.PI / 1.5, true);  // 안쪽 파인 날
+    bGfx.closePath();
+    bGfx.fillPath();
+    bGfx.strokePath();
+
+    const boomerang = this.add.container(bx, by, [bGfx]).setDepth(15);
+    
+    // 미친듯이 회전하는 애니메이션
+    this.tweens.add({
+      targets: boomerang,
+      rotation: Math.PI * 16,
+      duration: 900
+    });
+
+    // 날아갔다가 되돌아오는 (yoyo) 트윈
+    this.tweens.add({
+      targets: boomerang,
+      x: tx,
+      y: ty,
+      duration: 450,
+      ease: 'Quad.easeOut',
+      yoyo: true, // 되돌아옴!
+      onUpdate: () => {
+        // 부메랑 잔상 파티클
+        const trail = this.add.circle(boomerang.x, boomerang.y, 14, 0xb91c1c, 0.6).setBlendMode(Phaser.BlendModes.ADD).setDepth(14);
+        this.tweens.add({ targets: trail, scale: 0.1, alpha: 0, duration: 180, onComplete: () => trail.destroy() });
+
+        // 실시간 다단 히트 판정 (0.12초 간격으로 갈아버림)
+        this.enemies.getChildren().forEach(e => {
+          if (e.active && Phaser.Math.Distance.Between(boomerang.x, boomerang.y, e.x, e.y) < 40 + (e.isBoss ? 24 : 0)) {
+            if (!e.lastBoomerangHit || this.time.now - e.lastBoomerangHit > 120) {
+              e.lastBoomerangHit = this.time.now;
+              
+              // 넉백 없이(null) 제자리에서 믹서기처럼 다단히트 (데미지: 38)
+              this.damageEnemy(e, 38, null, false);
+              
+              // 부메랑 흡혈(타격당 3% 확률로 1 회복)
+              if (Math.random() < 0.03 && this.state.hp < this.state.maxHp) {
+                this.state.hp = Math.min(this.state.maxHp, this.state.hp + 1);
+                this.updateHUD();
+              }
+            }
+          }
+        });
+      },
+      onComplete: () => boomerang.destroy()
+    });
+  }
+
   // ★ [히든 하드코어 분기] 신도, 광기도 거부한 순수한 인간 (TRUE MORTAL)
   awakenTrueMortal() {
     this.state.ascended = true;
@@ -3243,6 +3603,125 @@ class MainScene extends Phaser.Scene {
       .setColor('#f43f5e');
   }
 
+  // ★ [150킬 이벤트] 공허의 침식 (배경 보랏빛 전환 & Act 2 몬스터 강화)
+  triggerWaveEscalation2() {
+    if (!this.state.isAct2 || this.state.isGameOver) return;
+    this.state.isAct2Escalated = true; // ★ 몹 스펙 강화 플래그 ON
+
+    this.cameras.main.flash(800, 147, 51, 234);
+    this.cameras.main.shake(600, 0.025);
+
+    const worldW = 1400;
+    const worldH = 1400;
+    const cx = worldW / 2;
+    const cy = worldH / 2;
+
+    // 1. 배경 그래픽(act2BgGfx)을 심해 청록색 -> 심연의 보랏빛(#070312)으로 전면 재렌더링
+    this.cameras.main.setBackgroundColor('#070312');
+    if (this.act2BgGfx) {
+      this.act2BgGfx.clear();
+
+      // (A) 공허의 기저 바닥색
+      this.act2BgGfx.fillStyle(0x070312, 1);
+      this.act2BgGfx.fillRect(0, 0, worldW, worldH);
+
+      // (B) 보랏빛 고대 유적 석판과 균열
+      this.act2BgGfx.lineStyle(2, 0x1e0b36, 0.75);
+      for (let x = 0; x < worldW; x += 180) {
+        for (let y = 0; y < worldH; y += 180) {
+          const offsetX = ((y / 180) % 2) * 60;
+          this.act2BgGfx.strokeRect(x + offsetX, y, 172, 172);
+
+          if ((x + y) % 360 === 0) {
+            this.act2BgGfx.lineStyle(1, 0x3b0764, 0.5);
+            this.act2BgGfx.lineBetween(
+              x + offsetX + 20,
+              y + 20,
+              x + offsetX + 150,
+              y + 150
+            );
+            this.act2BgGfx.lineStyle(2, 0x1e0b36, 0.75);
+          }
+        }
+      }
+
+      // (C) 중앙 심연의 눈 문양 (보랏빛/자홍빛 개안)
+      this.act2BgGfx.lineStyle(3, 0x4c1d95, 0.7);
+      this.act2BgGfx.strokeCircle(cx, cy, 260);
+      this.act2BgGfx.strokeEllipse(cx, cy, 480, 190);
+      this.act2BgGfx.lineStyle(3, 0xa855f7, 0.8);
+      this.act2BgGfx.strokeEllipse(cx, cy, 80, 185);
+
+      // (D) 모놀리스 기둥 단상 테두리 보랏빛 갱신
+      const pillarSpots = [
+        { x: cx - 380, y: cy - 280 },
+        { x: cx + 380, y: cy - 280 },
+        { x: cx - 380, y: cy + 280 },
+        { x: cx + 380, y: cy + 280 },
+        { x: cx, y: cy - 420 },
+        { x: cx, y: cy + 420 },
+      ];
+      pillarSpots.forEach((spot) => {
+        this.act2BgGfx.fillStyle(0x0f051d, 0.9);
+        this.act2BgGfx.fillCircle(spot.x, spot.y, 42);
+        this.act2BgGfx.lineStyle(2, 0xa855f7, 0.45);
+        this.act2BgGfx.strokeCircle(spot.x, spot.y, 42);
+      });
+    }
+
+    // 2. 모놀리스 룬 코어 불빛을 보라색(0xd8b4f8)으로 변경
+    if (this.act2Runes) {
+      this.act2Runes.forEach((rune) => {
+        if (rune && rune.active) rune.setFillStyle(0xd8b4f8, 0.65);
+      });
+    }
+
+    // 3. 환경 부유 포자 파티클도 보라/자홍빛으로 교체
+    if (this.act2AmbientParticles) {
+      this.act2AmbientParticles.destroy();
+    }
+    this.act2AmbientParticles = this.add
+      .particles(0, 0, 'px', {
+        x: { min: 0, max: worldW },
+        y: { min: 0, max: worldH },
+        color: [0xa855f7, 0xd8b4f8, 0xe879f9],
+        scale: { start: 2.0, end: 0 },
+        alpha: { start: 0.5, end: 0 },
+        speedY: { min: -35, max: -12 },
+        speedX: { min: -15, max: 15 },
+        lifespan: { min: 2000, max: 4000 },
+        frequency: 70,
+        blendMode: 'ADD',
+      })
+      .setDepth(-2);
+
+    // 4. 스폰 주기 단축 (딥 원: 900 -> 700ms / 공허의 사역마: 2800 -> 2000ms)
+    if (this.deepOneTimer) this.deepOneTimer.delay = 700;
+    if (this.voidCallerTimer) this.voidCallerTimer.delay = 2000;
+
+    // 5. 기존 필드에 살아있는 몹들도 즉시 강화 상태 부여
+    this.enemies.getChildren().forEach((e) => {
+      if (!e.active || e.isBoss) return;
+      if (e.isDeepOne) {
+        e.hp += 25;
+        e.baseSpeed = 195;
+        e.setTint(0xc084fc); // 공허에 물든 딥 원
+      } else if (e.isVoidCaller) {
+        e.hp += 40;
+        e.baseSpeed = 80;
+        e.setScale(1.15);
+      }
+    });
+
+    // 즉석에서 공허의 사역마 2마리 기습 소환
+    this.spawnVoidCaller();
+    this.spawnVoidCaller();
+
+    this.hudGuide
+      .setText('🟣 [공허의 침식] 심해가 보랏빛 공허에 잠식됩니다! 적들이 광폭화합니다!')
+      .setColor('#d8b4f8');
+  }
+
   // ★ [80킬 이벤트] 신격 1차 초월 각성 (-α : Alpha Evolution)
   triggerSecondAscension() {
     if (this.state.awakeningTier >= 1) return;
@@ -3287,7 +3766,7 @@ class MainScene extends Phaser.Scene {
         '[α: 니알라토텝] 순간이동 시 공허 폭발이 일며 4킬마다 폭주합니다!',
       NODENS: '[α: 노덴스] 3단 콤보의 차원 검기가 3갈래 폭풍으로 확장됩니다!',
       'THE FAITHLESS':
-        '[α: 무신앙자] 참격이 십자(X) 형태로 교차하며 전방을 도륙합니다!',
+        '[The Murder] 살의가 형태를 갖춥니다. 참격이 십자(X) 형태로 교차하며 전방을 도륙합니다!',
       'MORTAL CULTIST':
         '[α: 필멸의 극의] 단검의 공격 속도와 치명타 위력이 한계를 돌파합니다!',
     };
@@ -3959,6 +4438,13 @@ class MainScene extends Phaser.Scene {
     deepOne.baseSpeed = 160;
     deepOne.isDeepOne = true;
     deepOne.tick = Phaser.Math.Between(0, 100);
+
+    const isEsc = this.state.isAct2Escalated;
+    deepOne.hp = isEsc ? 90 : 60;         // 체력 60 -> 90 (단검 2방에 안 죽음)
+    deepOne.baseSpeed = isEsc ? 195 : 160; // 이속 160 -> 195 대폭 상승
+    deepOne.isDeepOne = true;
+    deepOne.tick = Phaser.Math.Between(0, 100);
+    if (isEsc) deepOne.setTint(0xc084fc);  // 보랏빛 공허 침식 외형
   }
 
   spawnVoidCaller() {
@@ -3988,6 +4474,13 @@ class MainScene extends Phaser.Scene {
     caller.baseSpeed = 60;
     caller.isVoidCaller = true;
     caller.isRanged = true;
+
+    const isEsc = this.state.isAct2Escalated;
+    caller.hp = isEsc ? 165 : 120;        // 체력 120 -> 165
+    caller.baseSpeed = isEsc ? 80 : 60;   // 추격 속도 상승
+    caller.isVoidCaller = true;
+    caller.isRanged = true;
+    if (isEsc) caller.setScale(1.15);     // 덩치 15% 확대
   }
 
   initAct1Loop(
@@ -4150,8 +4643,594 @@ class MainScene extends Phaser.Scene {
     });
   }
 
+  // ============================================================================
+  // [ACT 2 BOSS: THE GREAT DEEP ONE (그레이트 딥 원)]
+  // ============================================================================
+
+  spawnGreatDeepOne() {
+    if (this.state.isAct2BossSpawned || this.state.isGameOver) return;
+    this.state.isAct2BossSpawned = true;
+    this.state.isBossSpawned = true; // update()에서 handleBossAI가 돌도록 활성화
+
+    // 기존 Act 2 잡몹 스폰 중지 및 필드 클리어
+    if (this.deepOneTimer) this.deepOneTimer.remove();
+    if (this.voidCallerTimer) this.voidCallerTimer.remove();
+    this.enemies.clear(true, true);
+    this.projectiles.clear(true, true);
+
+    this.cameras.main.flash(1000, 16, 185, 129);
+    this.cameras.main.shake(1200, 0.04);
+
+    // 보스 HUD 세팅
+    this.bossHpBg.setVisible(true);
+    this.bossHpBar.setVisible(true);
+    this.bossHpBar.width = 420;
+    this.bossHpBar.setFillStyle(0x10b981);
+    this.bossName
+      .setText('심해의 옛 지배자: THE GREAT DEEP ONE')
+      .setColor('#6ee7b7')
+      .setVisible(true);
+
+    const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+    const bx = Phaser.Math.Clamp(this.player.x + Math.cos(angle) * 360, 120, 1280);
+    const by = Phaser.Math.Clamp(this.player.y + Math.sin(angle) * 360, 120, 1280);
+
+    this.boss = this.physics.add.sprite(bx, by, 'great_deep_one').setDepth(12);
+    this.boss.setCollideWorldBounds(true);
+    this.boss.body.setCircle(28, 14, 14);
+
+    this.boss.hp = 3800; // 받는 피해 70% 특성으로 체감 체력은 약 5,400!
+    this.boss.maxHp = 3800;
+    this.boss.isBoss = true;
+    this.boss.isGreatDeepOne = true;
+    this.boss.knockbackImmune = true; // ★ 넉백 완전 면역
+    this.boss.phase = 1;
+    this.boss.tick = 0;
+    this.boss.isAttacking = false;
+    this.boss.isHitCooldown = false;
+    this.boss.nextPatternTime = this.time.now + 2400;
+
+    this.enemies.add(this.boss);
+
+    // 접촉 피해 & 패링 판정 (성벌군 대주교와 동일 구조)
+    this.physics.add.overlap(this.player, this.boss, () => {
+      if (
+        !this.boss ||
+        !this.boss.active ||
+        this.boss.alpha < 0.5 || // 페이즈 2 은신 중일 때는 접촉 판정 무시
+        this.state.isDashing ||
+        this.boss.isHitCooldown
+      )
+        return;
+
+      const counterAngle = Phaser.Math.Angle.Between(
+        this.player.x,
+        this.player.y,
+        this.boss.x,
+        this.boss.y
+      );
+
+      if (this.state.isParrying) {
+        this.registerParrySuccess();
+        if (this.state.form === 'DAGON') this.triggerDagonWave();
+        if (this.state.form === 'NYARLATHOTEP') {
+          this.triggerNyarlaBlink(this.boss, false);
+        }
+        if (!this.boss || !this.boss.active) return;
+        this.damageEnemy(this.boss, 120, counterAngle, true);
+      } else {
+        this.cameras.main.shake(200, 0.022);
+        this.cameras.main.flash(120, 180, 0, 0);
+        this.takeDamage(this.boss.phase === 2 ? 30 : 22);
+      }
+
+      if (!this.boss || !this.boss.active) return;
+      this.boss.isHitCooldown = true;
+      this.time.delayedCall(500, () => {
+        if (this.boss && this.boss.active) this.boss.isHitCooldown = false;
+      });
+    });
+
+    this.hudGuide
+      .setText('🌊 [THE GREAT DEEP ONE] 심해의 정점이 모습을 드러냈습니다! (넉백 면역 / 피해감소 30%)')
+      .setColor('#34d399');
+  }
+
+  // 가시 탄환(삼각형) 발사 헬퍼
+  fireThornProjectile(x, y, angle, speed, color = null) {
+    if (this.state.isGameOver) return;
+    const thorn = this.projectiles.create(x, y, 'thorn_bolt').setDepth(9);
+    thorn.setRotation(angle);
+    if (color) thorn.setTint(color);
+    thorn.body.setCircle(5, 3, 3);
+    thorn.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
+
+    // 패링 반사 시 회전각도도 함께 바뀌도록 처리
+    this.time.delayedCall(3800, () => {
+      if (thorn && thorn.active) thorn.destroy();
+    });
+    return thorn;
+  }
+
+  // 그레이트 딥 원 메인 AI 루프
+  handleGreatDeepOneAI(time) {
+    if (!this.boss || !this.boss.active) return;
+
+    // 체력 50% 이하 시 2페이즈 돌입
+    if (this.boss.phase === 1 && this.boss.hp <= this.boss.maxHp * 0.5) {
+      this.triggerGreatDeepOnePhase2();
+      return;
+    }
+
+    if (this.boss.isAttacking) return;
+
+    const isP2 = this.boss.phase === 2;
+    const baseAngle = Phaser.Math.Angle.Between(
+      this.boss.x,
+      this.boss.y,
+      this.player.x,
+      this.player.y
+    );
+
+    if (time > this.boss.nextPatternTime) {
+      this.boss.isAttacking = true;
+      this.boss.setVelocity(0, 0);
+
+      const pat = Phaser.Math.Between(0, 2);
+      if (pat === 0) this.gdoPattern1_Dash(isP2);
+      else if (pat === 1) this.gdoPattern2_Thorns(isP2);
+      else if (pat === 2) this.gdoPattern3_Orbit(isP2);
+
+      const cd = isP2
+        ? Phaser.Math.Between(1800, 2600)
+        : Phaser.Math.Between(2600, 3500);
+      this.boss.nextPatternTime = time + cd;
+    } else {
+      // 평상시 딥원 특유의 어슬렁거리는 사인파(Sine) 유영 추격
+      this.boss.tick = (this.boss.tick || 0) + 0.08;
+      const wiggleAngle = baseAngle + Math.sin(this.boss.tick) * 0.5;
+      const spd = isP2 ? 155 : 120;
+      this.boss.setRotation(wiggleAngle);
+      this.boss.setVelocity(
+        Math.cos(wiggleAngle) * spd,
+        Math.sin(wiggleAngle) * spd
+      );
+    }
+  }
+
+  // 2페이즈 각성 연출
+  triggerGreatDeepOnePhase2() {
+    this.boss.phase = 2;
+    this.boss.isAttacking = true;
+    this.boss.setVelocity(0, 0);
+
+    this.cameras.main.flash(1000, 168, 85, 247);
+    this.cameras.main.shake(1000, 0.04);
+
+    this.bossName
+      .setText('★ 심연의 포식자: THE GREAT DEEP ONE (PHASE 2) ★')
+      .setColor('#e879f9');
+    this.bossHpBar.setFillStyle(0xa855f7);
+
+    const ring = this.add
+      .circle(this.boss.x, this.boss.y, 35, 0xa855f7, 0.5)
+      .setStrokeStyle(5, 0x10b981, 1)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(15);
+
+    this.tweens.add({
+      targets: ring,
+      scale: 12,
+      alpha: 0,
+      duration: 700,
+      ease: 'Cubic.easeOut',
+      onComplete: () => ring.destroy(),
+    });
+
+    this.boss.setScale(1.18);
+    this.boss.setTint(0xc084fc);
+
+    this.hudGuide
+      .setText('⚠️ [PHASE 2] 그레이트 딥 원이 공간의 틈새로 모습을 감추며 공허의 환영을 소환합니다!')
+      .setColor('#e879f9');
+
+    this.time.delayedCall(900, () => {
+      if (this.boss && this.boss.active) {
+        this.boss.isAttacking = false;
+        this.boss.nextPatternTime = this.time.now + 400;
+      }
+    });
+  }
+
+  // --------------------------------------------------------------------------
+  // [패턴 1]
+  // P1: 딥원 무빙으로 어슬렁거리며 접근 후 3연속 맹렬한 돌진
+  // P2: 모습이 완전히 사라졌다가 플레이어 주변 무작위 각도에서 기습 출현 돌진 3연타 (듀크 피시론)
+  // --------------------------------------------------------------------------
+  gdoPattern1_Dash(isP2) {
+    if (!this.boss || !this.boss.active) return;
+
+    if (!isP2) {
+      // [P1] 0.9초간 어슬렁거리며 좁혀 들어온 뒤 3연속 돌진
+      let stalkTicks = 0;
+      const stalkTimer = this.time.addEvent({
+        delay: 45,
+        repeat: 18,
+        callback: () => {
+          if (!this.boss || !this.boss.active) return;
+          stalkTicks++;
+          const a =
+            Phaser.Math.Angle.Between(
+              this.boss.x,
+              this.boss.y,
+              this.player.x,
+              this.player.y
+            ) +
+            Math.sin(stalkTicks * 0.6) * 0.65;
+          this.boss.setRotation(a);
+          this.boss.setVelocity(Math.cos(a) * 185, Math.sin(a) * 185);
+        },
+      });
+
+      this.time.delayedCall(900, () => {
+        stalkTimer.remove();
+        this.executeGdoDashChain(3, false);
+      });
+    } else {
+      // [P2] 듀크 피시론식 은신 -> 무작위 방향 워프 -> 돌진 3회 반복
+      this.executeGdoDashChain(3, true);
+    }
+  }
+
+  executeGdoDashChain(rem, isDukeMode) {
+    if (!this.boss || !this.boss.active || this.state.isGameOver) return;
+    if (rem <= 0) {
+      this.boss.setVelocity(0, 0);
+      this.boss.isAttacking = false;
+      return;
+    }
+
+    if (isDukeMode) {
+      // 1) 물거품과 함께 잠수(은신)
+      this.boss.isInvulnerableBoss = true;
+      this.tweens.add({
+        targets: this.boss,
+        alpha: 0,
+        duration: 180,
+        onComplete: () => {
+          if (!this.boss || !this.boss.active) return;
+          // 플레이어 주변 270px 반경의 무작위 각도로 순간이동
+          const randAngle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+          const wx = Phaser.Math.Clamp(
+            this.player.x + Math.cos(randAngle) * 270,
+            90,
+            1310
+          );
+          const wy = Phaser.Math.Clamp(
+            this.player.y + Math.sin(randAngle) * 270,
+            90,
+            1310
+          );
+          this.boss.setPosition(wx, wy);
+
+          const chargeAngle = Phaser.Math.Angle.Between(
+            wx,
+            wy,
+            this.player.x,
+            this.player.y
+          );
+          this.boss.setRotation(chargeAngle);
+
+          // 출현 파문 및 돌진 궤적 경고선
+          const splash = this.add
+            .circle(wx, wy, 35, 0xa855f7, 0.5)
+            .setBlendMode(Phaser.BlendModes.ADD)
+            .setDepth(11);
+          this.tweens.add({
+            targets: splash,
+            scale: 2.2,
+            alpha: 0,
+            duration: 280,
+            onComplete: () => splash.destroy(),
+          });
+
+          const warn = this.add
+            .graphics()
+            .setDepth(4)
+            .lineStyle(34, 0xe879f9, 0.3)
+            .lineBetween(
+              wx,
+              wy,
+              wx + Math.cos(chargeAngle) * 440,
+              wy + Math.sin(chargeAngle) * 440
+            );
+
+          this.boss.isInvulnerableBoss = false;
+          this.boss.isWindingUp = true;
+          this.tweens.add({ targets: this.boss, alpha: 1, duration: 150 });
+
+          this.time.delayedCall(360, () => {
+            warn.destroy();
+            if (!this.boss || !this.boss.active) return;
+            this.boss.isWindingUp = false;
+            this.cameras.main.shake(160, 0.018);
+            this.boss.setVelocity(
+              Math.cos(chargeAngle) * 760,
+              Math.sin(chargeAngle) * 760
+            );
+
+            this.time.delayedCall(380, () => {
+              if (!this.boss || !this.boss.active) return;
+              this.boss.setVelocity(0, 0);
+              this.executeGdoDashChain(rem - 1, true);
+            });
+          });
+        },
+      });
+    } else {
+      // [P1 일반 3연속 돌진]
+      const chargeAngle = Phaser.Math.Angle.Between(
+        this.boss.x,
+        this.boss.y,
+        this.player.x,
+        this.player.y
+      );
+      this.boss.setRotation(chargeAngle);
+      this.boss.isWindingUp = true;
+      this.boss.setTint(0xef4444);
+
+      const warn = this.add
+        .graphics()
+        .setDepth(4)
+        .lineStyle(28, 0x10b981, 0.28)
+        .lineBetween(
+          this.boss.x,
+          this.boss.y,
+          this.boss.x + Math.cos(chargeAngle) * 380,
+          this.boss.y + Math.sin(chargeAngle) * 380
+        );
+
+      this.time.delayedCall(360, () => {
+        warn.destroy();
+        if (!this.boss || !this.boss.active) return;
+        this.boss.isWindingUp = false;
+        this.boss.clearTint();
+        this.cameras.main.shake(140, 0.014);
+        this.boss.setVelocity(
+          Math.cos(chargeAngle) * 650,
+          Math.sin(chargeAngle) * 650
+        );
+
+        this.time.delayedCall(360, () => {
+          if (!this.boss || !this.boss.active) return;
+          this.boss.setVelocity(0, 0);
+          this.time.delayedCall(90, () =>
+            this.executeGdoDashChain(rem - 1, false)
+          );
+        });
+      });
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // [패턴 2]
+  // P1: 입에서 삼각형 가시 탄환을 무작위로 대량 뱉어내 흩뿌림
+  // P2: 맵 좌우/상하 양쪽에서 격자(Grid) 라인을 따라 가시 탄막이 교차 행진 (탄막 슈팅)
+  // --------------------------------------------------------------------------
+  gdoPattern2_Thorns(isP2) {
+    if (!this.boss || !this.boss.active) return;
+
+    if (!isP2) {
+      // [P1] 플레이어 방향 중심으로 무작위 각도/속도의 가시 탄환 28발 난사
+      this.boss.setTint(0x34d399);
+      const baseA = Phaser.Math.Angle.Between(
+        this.boss.x,
+        this.boss.y,
+        this.player.x,
+        this.player.y
+      );
+
+      for (let i = 0; i < 24; i++) {
+        this.time.delayedCall(i * 45, () => {
+          if (!this.boss || !this.boss.active) return;
+          const randSpread = Phaser.Math.FloatBetween(-1.15, 1.15);
+          const randSpd = Phaser.Math.Between(210, 390);
+          this.boss.setRotation(baseA + randSpread * 0.5);
+          this.fireThornProjectile(
+            this.boss.x,
+            this.boss.y,
+            baseA + randSpread,
+            randSpd
+          );
+        });
+      }
+
+      this.time.delayedCall(1250, () => {
+        if (this.boss && this.boss.active) {
+          this.boss.clearTint();
+          this.boss.isAttacking = false;
+        }
+      });
+    } else {
+      // [P2] 화면 양쪽(좌->우, 상->하) 격자 탄막 발사!
+      this.cameras.main.shake(250, 0.015);
+      const px = this.player.x;
+      const py = this.player.y;
+      const spacing = 105; // 격자 간격 (사이로 정밀 회피 가능)
+
+      // 격자 예고 레이저 라인 표시
+      const gridGfx = this.add
+        .graphics()
+        .setDepth(4)
+        .lineStyle(1.5, 0xe879f9, 0.35);
+
+      for (let i = -3; i <= 3; i++) {
+        const rowY = Phaser.Math.Clamp(py + i * spacing, 60, 1340);
+        const colX = Phaser.Math.Clamp(px + i * spacing, 60, 1340);
+        gridGfx.lineBetween(px - 450, rowY, px + 450, rowY);
+        gridGfx.lineBetween(colX, py - 450, colX, py + 450);
+      }
+
+      this.time.delayedCall(550, () => {
+        gridGfx.destroy();
+        if (!this.boss || !this.boss.active || this.state.isGameOver) return;
+
+        // 2웨이브에 걸쳐 좌우 & 상하에서 격자 가시 사출
+        for (let w = 0; w < 2; w++) {
+          this.time.delayedCall(w * 650, () => {
+            if (this.state.isGameOver) return;
+            this.cameras.main.shake(120, 0.01);
+            const offset = w * (spacing / 2); // 2번째 웨이브는 엇갈린 격자로 발사
+
+            for (let i = -3; i <= 3; i++) {
+              const rowY = Phaser.Math.Clamp(py + i * spacing + offset, 60, 1340);
+              const colX = Phaser.Math.Clamp(px + i * spacing + offset, 60, 1340);
+
+              // 좌측 -> 우측 & 우측 -> 좌측
+              this.fireThornProjectile(px - 440, rowY, 0, 310, 0xe879f9);
+              this.fireThornProjectile(px + 440, rowY, Math.PI, 310, 0xe879f9);
+
+              // 상단 -> 하단 & 하단 -> 상단
+              this.fireThornProjectile(colX, py - 380, Math.PI / 2, 310, 0xc084fc);
+              this.fireThornProjectile(colX, py + 380, -Math.PI / 2, 310, 0xc084fc);
+            }
+          });
+        }
+
+        this.time.delayedCall(1500, () => {
+          if (this.boss && this.boss.active) this.boss.isAttacking = false;
+        });
+      });
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // [패턴 3]
+  // P1: 플레이어 기준 원 모양 궤도로 고속 회전하며 중심(플레이어)으로 가시 탄환 발사 (근접 공격 불가!)
+  // P2: 정반대 대칭 위치에 '심연의 환영'을 생성해 양쪽에서 동시에 돌며 양방향 포위 사격!
+  // --------------------------------------------------------------------------
+  gdoPattern3_Orbit(isP2) {
+    if (!this.boss || !this.boss.active) return;
+
+    // ★ 기획 반영: 회전 패턴 중에는 근거리 공격(단검)에 맞지 않도록 무적 + 반투명 수중 유영 처리!
+    // (단, 플레이어가 쏘거나 패링으로 튕겨낸 원거리 반사 탄환에는 타격 가능하도록 유지)
+    this.boss.isInvulnerableBoss = true;
+    this.boss.setAlpha(0.7);
+
+    // 플레이어 주변에 근접 불가 궤도 링 시각 표시
+    const orbitRadius = 240;
+    const orbitGuide = this.add
+      .circle(this.player.x, this.player.y, orbitRadius)
+      .setStrokeStyle(2, isP2 ? 0xe879f9 : 0x10b981, 0.45)
+      .setDepth(4);
+
+    // P2 전용: 정반대(180도 대칭) 궤도를 도는 환영(Clone) 생성
+    let clone = null;
+    if (isP2) {
+      clone = this.add
+        .sprite(this.boss.x, this.boss.y, 'great_deep_one')
+        .setTint(0xa855f7)
+        .setAlpha(0.6)
+        .setScale(1.18)
+        .setBlendMode(Phaser.BlendModes.ADD)
+        .setDepth(11);
+    }
+
+    let currentOrbitAngle = Phaser.Math.Angle.Between(
+      this.player.x,
+      this.player.y,
+      this.boss.x,
+      this.boss.y
+    );
+    let step = 0;
+
+    const orbitTimer = this.time.addEvent({
+      delay: 30,
+      repeat: 75, // 약 2.25초간 플레이어 주위를 공전
+      callback: () => {
+        if (!this.boss || !this.boss.active || this.state.isGameOver) {
+          orbitGuide.destroy();
+          if (clone) clone.destroy();
+          orbitTimer.remove();
+          return;
+        }
+
+        step++;
+        currentOrbitAngle += isP2 ? 0.085 : 0.07;
+
+        const cx = this.player.x;
+        const cy = this.player.y;
+        orbitGuide.setPosition(cx, cy);
+
+        // 본체 위치 갱신 (플레이어 기준 원 궤도)
+        const bx = Phaser.Math.Clamp(
+          cx + Math.cos(currentOrbitAngle) * orbitRadius,
+          60,
+          1340
+        );
+        const by = Phaser.Math.Clamp(
+          cy + Math.sin(currentOrbitAngle) * orbitRadius,
+          60,
+          1340
+        );
+        this.boss.setPosition(bx, by);
+        const aimToPlayer = Phaser.Math.Angle.Between(bx, by, cx, cy);
+        this.boss.setRotation(aimToPlayer);
+
+        // P2 환영 위치 갱신 (정반대 +PI 각도)
+        if (clone) {
+          const oppAngle = currentOrbitAngle + Math.PI;
+          const clX = Phaser.Math.Clamp(
+            cx + Math.cos(oppAngle) * orbitRadius,
+            60,
+            1340
+          );
+          const clY = Phaser.Math.Clamp(
+            cy + Math.sin(oppAngle) * orbitRadius,
+            60,
+            1340
+          );
+          clone.setPosition(clX, clY);
+          const cloneAim = Phaser.Math.Angle.Between(clX, clY, cx, cy);
+          clone.setRotation(cloneAim);
+
+          if (step % 7 === 0) {
+            this.fireThornProjectile(clX, clY, cloneAim, 330, 0xe879f9);
+          }
+        }
+
+        // 본체 플레이어 조준 사격
+        if (step % 7 === 0) {
+          this.fireThornProjectile(
+            bx,
+            by,
+            aimToPlayer,
+            330,
+            isP2 ? 0xc084fc : null
+          );
+        }
+      },
+    });
+
+    this.time.delayedCall(2350, () => {
+      orbitGuide.destroy();
+      if (clone) clone.destroy();
+      if (this.boss && this.boss.active) {
+        this.boss.isInvulnerableBoss = false;
+        this.boss.setAlpha(1.0);
+        this.boss.isAttacking = false;
+      }
+    });
+  }
+
   handleBossAI(time) {
     if (!this.boss || !this.boss.active) return;
+
+    // ★ Act 2 보스(그레이트 딥 원)일 경우 전용 AI로 즉시 위임!
+    if (this.boss.isGreatDeepOne) {
+      this.handleGreatDeepOneAI(time);
+      return;
+    }
 
     // ★ 체력 50% 이하 시 즉시 2페이즈 돌입 체크
     if (this.boss.phase === 1 && this.boss.hp <= this.boss.maxHp * 0.5) {
@@ -4469,15 +5548,20 @@ class MainScene extends Phaser.Scene {
             const speed = GAME_CONFIG.RANGED_ENEMY.PROJECTILE_SPEED;
 
             if (e.isVoidCaller) {
-              // ★ Act 2 사역마: 3갈래 방사형 심연 투사체
-              [-0.25, 0, 0.25].forEach((offset) => {
+              // ★ 150킬 이후(isAct2Escalated)에는 3갈래 -> 5갈래 부채꼴 탄막 + 탄속 1.25배!
+              const spreadAngles = this.state.isAct2Escalated
+                ? [-0.4, -0.2, 0, 0.2, 0.4]
+                : [-0.25, 0, 0.25];
+              const vSpeed = this.state.isAct2Escalated ? speed * 1.25 : speed;
+
+              spreadAngles.forEach((offset) => {
                 const bolt = this.projectiles
                   .create(e.x, e.y, 'holy_bolt')
                   .setDepth(9);
-                bolt.setTint(0xa855f7); // 보랏빛
+                bolt.setTint(this.state.isAct2Escalated ? 0xe879f9 : 0xa855f7);
                 bolt.setVelocity(
-                  Math.cos(boltAngle + offset) * speed,
-                  Math.sin(boltAngle + offset) * speed
+                  Math.cos(boltAngle + offset) * vSpeed,
+                  Math.sin(boltAngle + offset) * vSpeed
                 );
                 this.time.delayedCall(3000, () => {
                   if (bolt.active) bolt.destroy();
@@ -4543,7 +5627,8 @@ class MainScene extends Phaser.Scene {
           if (!e.active || !e.isWindingUp) return;
           e.isWindingUp = false;
           e.isAttacking = true;
-          e.clearTint();
+          if (e.isDeepOne && this.state.isAct2Escalated) e.setTint(0xc084fc);
+          else e.clearTint();
 
           // 딥 원은 돌진 속도가 약간 더 빠름
           const lungeSpeed = e.isDeepOne ? 400 : 320;
@@ -4578,6 +5663,8 @@ class MainScene extends Phaser.Scene {
               // 피격 플래시도 몬스터에 맞게 색상 변경 (딥 원: 녹색 점멸, 성전사: 붉은 점멸)
               if (e.isDeepOne) this.cameras.main.flash(100, 16, 185, 129);
               else this.cameras.main.flash(100, 180, 0, 0);
+              if (e.isDeepOne && this.state.isAct2Escalated) e.setTint(0xc084fc);
+              else e.clearTint();
 
               this.takeDamage(15);
             }
@@ -4606,11 +5693,24 @@ class MainScene extends Phaser.Scene {
 
   updateHUD() {
     let suffix = '';
-    if (this.state.awakeningTier === 1) suffix = '-α';
-    else if (this.state.awakeningTier === 2) {
-      suffix = this.state.awakeningPath === 'GAMMA' ? '-γ' : '-β';
-    } else if (this.state.awakeningTier === 3) {
-      suffix = '-Ω';
+
+    // ★ 무신앙자(THE FAITHLESS) 전용 하드코어 칭호 시스템
+    if (this.state.form === 'THE FAITHLESS') {
+      if (this.state.awakeningTier === 1) suffix = ' [THE MURDER]';
+      else if (this.state.awakeningTier === 2) {
+        suffix = this.state.awakeningPath === 'GAMMA' ? ' [THE JUDGEMENT]' : ' [THE BUTCHER]';
+      } else if (this.state.awakeningTier === 3) {
+        suffix = ' [GODSLAYER]';
+      }
+    } 
+    // 다른 신격들은 기존 그리스 알파벳 유지
+    else {
+      if (this.state.awakeningTier === 1) suffix = '-α';
+      else if (this.state.awakeningTier === 2) {
+        suffix = this.state.awakeningPath === 'GAMMA' ? '-γ' : '-β';
+      } else if (this.state.awakeningTier === 3) {
+        suffix = '-Ω';
+      }
     }
 
     this.hudForm.setText(`FORM: ${this.state.form}${suffix}`);
@@ -4666,6 +5766,7 @@ class MainScene extends Phaser.Scene {
     if (!this.boss) return;
     const bx = this.boss.x;
     const by = this.boss.y;
+    const wasGreatDeepOne = this.boss.isGreatDeepOne; // ★ 2막 보스 여부 확인!
 
     // 1. 보스 엔티티 및 잔여 투사체 즉시 소거
     this.boss.destroy();
@@ -4681,6 +5782,48 @@ class MainScene extends Phaser.Scene {
     this.cameras.main.flash(900, 185, 28, 28);
     this.cameras.main.shake(1000, 0.04);
     this.bloodEmitter.explode(140, bx, by);
+
+    // ★ 그레이트 딥 원 처치 시: 포탈 생성 대신 Act 2 정복 배너 출력 & 스폰 재개(또는 엔딩)
+    if (wasGreatDeepOne) {
+      this.state.isBossSpawned = false;
+      this.state.maxHp += 50;
+      this.state.hp = this.state.maxHp;
+      this.state.kills++;
+      this.updateHUD();
+
+      const winBanner = this.add
+        .text(
+          this.cameras.main.centerX,
+          this.cameras.main.centerY - 60,
+          'THE GREAT DEEP ONE SLAIN\n[ 심해의 옛 지배자가 침묵합니다 ]',
+          {
+            fontFamily: 'Georgia, serif',
+            fontSize: '26px',
+            color: '#6ee7b7',
+            align: 'center',
+            fontStyle: 'bold',
+            stroke: '#000000',
+            strokeThickness: 6,
+          }
+        )
+        .setOrigin(0.5)
+        .setScrollFactor(0)
+        .setDepth(200);
+
+      this.tweens.add({
+        targets: winBanner,
+        y: winBanner.y - 30,
+        alpha: 0,
+        delay: 2500,
+        duration: 1200,
+        onComplete: () => winBanner.destroy(),
+      });
+
+      this.hudGuide
+        .setText('🏆 [ACT II CLEAR] 그레이트 딥 원을 토벌했습니다!')
+        .setColor('#fde047');
+      return;
+    }
 
     const bossOrbCount = Phaser.Math.Between(60, 80);
     for (let i = 0; i < bossOrbCount; i++) {
@@ -5027,6 +6170,8 @@ class MainScene extends Phaser.Scene {
       { x: cx, y: cy + 420 },
     ];
 
+    this.act2Runes = [];
+
     pillarSpots.forEach((spot) => {
       // 기둥 바닥 그림자 및 석조 단상
       this.act2BgGfx.fillStyle(0x071714, 0.9);
@@ -5039,6 +6184,8 @@ class MainScene extends Phaser.Scene {
         .circle(spot.x, spot.y, 8, 0x10b981, 0.5)
         .setBlendMode(Phaser.BlendModes.ADD)
         .setDepth(-5);
+
+      this.act2Runes.push(runeGlow);
 
       this.tweens.add({
         targets: runeGlow,
