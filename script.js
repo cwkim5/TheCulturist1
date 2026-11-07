@@ -351,32 +351,26 @@ class MainScene extends Phaser.Scene {
 
     this.state.startTime = this.time.now;
 
+    this.pauseBg = this.add
+  .rectangle(400, 300, 800, 600, 0x000000, 0.6)
+  .setScrollFactor(0)
+  .setDepth(299)
+  .setVisible(false);
+
     this.pauseText = this.add
-      .text(400, 300, 'PAUSED', {
-        fontFamily: 'Georgia, serif',
-        fontSize: '48px',
-        color: '#ffffff',
-        fontStyle: 'bold',
-      })
-      .setOrigin(0.5)
-      .setScrollFactor(0)
-      .setDepth(300)
-      .setVisible(false);
+  .text(400, 300, 'PAUSED\n[ 클릭 또는 ESC로 재개 ]', {
+    fontFamily: 'Georgia, serif',
+    fontSize: '36px',
+    color: '#ffffff',
+    fontStyle: 'bold',
+    align: 'center',
+  })
+  .setOrigin(0.5)
+  .setScrollFactor(0)
+  .setDepth(300)
+  .setVisible(false);
 
-    this.input.keyboard.on('keydown-ESC', () => {
-      if (this.state.isGameOver) return;
-      this.state.isPaused = !this.state.isPaused;
-
-      if (this.state.isPaused) {
-        this.physics.world.isPaused = true;
-        this.time.paused = true;
-        this.pauseText.setVisible(true);
-      } else {
-        this.physics.world.isPaused = false;
-        this.time.paused = false;
-        this.pauseText.setVisible(false);
-      }
-    });
+this.input.keyboard.on('keydown-ESC', () => this.togglePause());
 
     this.spaceKey = this.input.keyboard.addKey(
       Phaser.Input.Keyboard.KeyCodes.SPACE
@@ -1263,20 +1257,20 @@ class MainScene extends Phaser.Scene {
         const step = this.state.emptySlashes / 25;
         this.cameras.main.shake(120 * step, 0.005 * step);
 
-        const mouseWorld = this.cameras.main.getWorldPoint(
-          this.input.activePointer.x,
-          this.input.activePointer.y
-        );
-        for (let i = 0; i < step * 2; i++) {
-          const crack = this.add
-            .circle(
-              mouseWorld.x + Phaser.Math.Between(-15, 15),
-              mouseWorld.y + Phaser.Math.Between(-15, 15),
-              2 + step,
-              0xe2e8f0,
-              0.9
-            )
-            .setDepth(15);
+        const aimAngle = this.getAimAngle();
+const crackX = this.player.x + Math.cos(aimAngle) * 55;
+const crackY = this.player.y + Math.sin(aimAngle) * 55;
+
+for (let i = 0; i < step * 2; i++) {
+  const crack = this.add
+    .circle(
+      crackX + Phaser.Math.Between(-15, 15),
+      crackY + Phaser.Math.Between(-15, 15),
+      2 + step,
+      0xe2e8f0,
+      0.9
+    )
+    .setDepth(15);
 
           this.tweens.add({
             targets: crack,
@@ -5338,6 +5332,51 @@ class MainScene extends Phaser.Scene {
     // 모바일 2순위: 주변에 적이 없으면 현재 조이스틱을 밀고 있는 방향(또는 마지막 이동 방향) 반환
     return this.lastAimAngle || 0;
   }
+
+  togglePause() {
+  // 게임오버 상태이거나 포탈 진입 연출 중일 때는 일시정지 차단
+  if (this.state.isGameOver || this.state.isRestarting) return;
+
+  this.state.isPaused = !this.state.isPaused;
+
+  if (this.state.isPaused) {
+    this.physics.world.isPaused = true;
+    this.time.paused = true;
+    this.tweens.pauseAll(); // ★ 진행 중인 모든 트윈(마법진, 탄막 연출) 정지!
+
+    this.pauseBg.setVisible(true);
+    this.pauseText.setVisible(true);
+
+    // ★ 모바일 조이스틱 강제 리셋 (누른 채 일시정지 시 이동 고정 버그 방지)
+    if (this.isMobile && this.joyData) {
+      this.joyData.active = false;
+      this.joyData.vx = 0;
+      this.joyData.vy = 0;
+      if (this.joyThumb) this.joyThumb.setPosition(115, 475);
+    }
+
+    // ★ 일시정지 화면 어디든 터치/클릭하면 즉시 해제되는 최상단 터치존 생성
+    this.pauseResumeZone = this.add
+      .zone(400, 300, 800, 600)
+      .setScrollFactor(0)
+      .setDepth(310)
+      .setInteractive();
+
+    this.pauseResumeZone.once('pointerdown', () => this.togglePause());
+  } else {
+    this.physics.world.isPaused = false;
+    this.time.paused = false;
+    this.tweens.resumeAll(); // ★ 트윈 재개
+
+    this.pauseBg.setVisible(false);
+    this.pauseText.setVisible(false);
+
+    if (this.pauseResumeZone) {
+      this.pauseResumeZone.destroy();
+      this.pauseResumeZone = null;
+    }
+  }
+}
 
 }
 
