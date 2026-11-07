@@ -566,7 +566,7 @@ class MainScene extends Phaser.Scene {
         const isBtnArea = p.x > 500 && p.y > 300;
         if (isJoyArea || isBtnArea) return;
       }
-      
+
       if (p.rightButtonDown() || this.state.form === 'DAGON') {
         this.performParry();
       } else {
@@ -4771,6 +4771,21 @@ class MainScene extends Phaser.Scene {
     //this.time.paused = true;
     this.player.setTint(0x4a0008);
 
+    // ★ 1. [모바일 대응] 게임 오버 즉시 가상 조이스틱 및 액션 버튼 숨기기
+    if (this.isMobile) {
+      if (this.joyBase) this.joyBase.setVisible(false);
+      if (this.joyThumb) this.joyThumb.setVisible(false);
+      if (this.mobileButtons) {
+        this.mobileButtons.forEach((obj) => obj.setVisible(false));
+      }
+      // 조이스틱 입력 상태 초기화
+      if (this.joyData) {
+        this.joyData.active = false;
+        this.joyData.vx = 0;
+        this.joyData.vy = 0;
+      }
+    }
+
     const { width, height } = this.scale;
 
     // 게임 오버 텍스트 연출
@@ -4815,38 +4830,49 @@ class MainScene extends Phaser.Scene {
         .setDepth(300);
     }
 
-    // 처음엔 투명하게(alpha: 0) 숨겨두어 연타 중 실수로 넘어가는 것을 방지
+    // 모바일/PC 동적 텍스트 표시
+    const guideString = this.isMobile
+      ? '- 화면 아무 곳이나 터치하여 다시 시작 -'
+      : '- [R] 키 또는 클릭하여 처음부터 다시 시작 -';
+
     const restartText = this.add
-      .text(
-        width / 2,
-        height / 2 + 50,
-        '- [R] 키 또는 클릭하여 처음부터 다시 시작 -',
-        {
-          fontFamily: 'monospace',
-          fontSize: '14px',
-          color: '#94a3b8',
-        }
-      )
+      .text(width / 2, height / 2 + 55, guideString, {
+        fontFamily: 'monospace',
+        fontSize: '14px',
+        color: '#94a3b8',
+      })
       .setOrigin(0.5)
       .setScrollFactor(0)
       .setDepth(300)
       .setAlpha(0);
 
-    // ★ 사망 후 1.2초(1200ms)가 지나야 재시작 텍스트가 나타나고 입력이 활성화됨!
+    // ★ 2. 1.2초 후 전체 화면 터치 블록 활성화
     this.time.delayedCall(1200, () => {
       this.tweens.add({
         targets: restartText,
         alpha: 1,
-        duration: 400,
+        duration: 350,
       });
 
       const doRestart = () => {
+        // 중복 실행 방지
+        if (this.isRestarting) return;
+        this.isRestarting = true;
+
         this.physics.world.isPaused = false;
         this.scene.restart();
       };
 
-      // 1.2초 뒤부터 마우스 클릭 또는 R키 입력 허용
-      this.input.once('pointerdown', doRestart);
+      // 화면 전체를 덮는 투명 터치 센서 생성 (Depth 310 - 최상위)
+      const fullScreenTouchZone = this.add
+        .zone(width / 2, height / 2, width, height)
+        .setScrollFactor(0)
+        .setDepth(310)
+        .setInteractive();
+
+      fullScreenTouchZone.once('pointerdown', doRestart);
+
+      // PC 키보드 R키 지원
       this.input.keyboard.once('keydown-R', doRestart);
     });
   }
@@ -5110,6 +5136,8 @@ class MainScene extends Phaser.Scene {
   }
 
   setupMobileControls() {
+
+    this.mobileButtons = [];
     // ★ 1. 순수 모바일/태블릿 OS일 때만 모바일 모드로 확정
     const os = this.sys.game.device.os;
     this.isMobile = os.android || os.iOS || os.iPad || os.iPhone || os.windowsPhone;
@@ -5204,6 +5232,7 @@ class MainScene extends Phaser.Scene {
       btn.on('pointerup', () => btn.setScale(1.0).setAlpha(1.0));
       btn.on('pointerout', () => btn.setScale(1.0).setAlpha(1.0));
 
+      this.mobileButtons.push(btn, txt);
       return { btn, txt };
     };
 
