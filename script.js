@@ -284,55 +284,57 @@ class PreloadScene extends Phaser.Scene {
     formGfx.destroy();
 
     // ==========================================
-    // [Act 2 보스 텍스처] THE GREAT DEEP ONE (84x84) & 가시 탄환 (16x16)
+    // [Act 2 보스 텍스처] THE GREAT DEEP ONE (84x84) - 칠흑의 고대 투구 버전
     // ==========================================
     const gdoGfx = this.make.graphics({ x: 0, y: 0, add: false });
 
-    // 1) 거대한 톱니 측면 지느러미 (심해 암청색 + 선혈빛 테두리)
+    // 1) 거대한 심해 측면 지느러미 (차분하고 어두운 심해 청록 톤 통일)
     gdoGfx.fillStyle(0x022c22, 1);
-    gdoGfx.lineStyle(2, 0xef4444, 0.85);
-    gdoGfx.fillTriangle(36, 42, 10, 4, 58, 22);
-    gdoGfx.strokeTriangle(36, 42, 10, 4, 58, 22);
-    gdoGfx.fillTriangle(36, 42, 10, 80, 58, 62);
-    gdoGfx.strokeTriangle(36, 42, 10, 80, 58, 62);
+    gdoGfx.lineStyle(2, 0x0f766e, 0.9);
+    gdoGfx.fillTriangle(34, 42, 8, 4, 54, 22);
+    gdoGfx.strokeTriangle(34, 42, 8, 4, 54, 22);
+    gdoGfx.fillTriangle(34, 42, 8, 80, 54, 62);
+    gdoGfx.strokeTriangle(34, 42, 8, 80, 54, 62);
 
-    // 2) 비대화된 중갑 비늘 몸통
+    // 2) 중갑 비늘 몸통 (어두운 청록 몸체 + 차가운 에메랄드 외곽선)
     gdoGfx.fillStyle(0x064e3b, 1);
-    gdoGfx.lineStyle(3, 0x10b981, 1);
-    gdoGfx.fillEllipse(40, 42, 58, 42);
-    gdoGfx.strokeEllipse(40, 42, 58, 42);
+    gdoGfx.lineStyle(2.5, 0x10b981, 0.85);
+    gdoGfx.fillEllipse(38, 42, 56, 40);
+    gdoGfx.strokeEllipse(38, 42, 56, 40);
 
-    // 3) 전방(우측)으로 찢어진 아가리와 날카로운 이빨들
-    gdoGfx.fillStyle(0x450a0a, 1);
-    gdoGfx.fillCircle(58, 42, 12);
-    gdoGfx.fillStyle(0xf8fafc, 1);
-    for (let wy = 32; wy <= 52; wy += 5) {
-      gdoGfx.fillTriangle(62, wy - 2, 70, wy, 62, wy + 2);
-    }
+    // 등줄기 고대 비늘 마디 디테일
+    gdoGfx.fillStyle(0x022c22, 0.9);
+    gdoGfx.fillCircle(24, 42, 5);
+    gdoGfx.fillCircle(15, 42, 3.5);
 
-    // 4) 붉게 충혈된 4개의 포식자 안구
-    gdoGfx.fillStyle(0xdc2626, 1);
-    [
-      [52, 29, 4],
-      [52, 55, 4],
-      [42, 24, 3],
-      [42, 60, 3],
-    ].forEach(([ex, ey, r]) => {
-      gdoGfx.fillCircle(ex, ey, r);
-      gdoGfx.fillStyle(0xfef08a, 1);
-      gdoGfx.fillCircle(ex + 1, ey, 1.5);
-      gdoGfx.fillStyle(0xdc2626, 1);
-    });
+    // 3) 투구 아래로 살짝 드러난 창백한 심해 아가리 이빨 (과한 붉은색 제거)
+    gdoGfx.fillStyle(0x94a3b8, 0.85);
+    gdoGfx.fillTriangle(64, 30, 73, 33, 64, 36); // 좌측 송곳니
+    gdoGfx.fillTriangle(64, 48, 73, 51, 64, 54); // 우측 송곳니
 
-    // 5) 이마 앞으로 뻗어 나온 심해 아귀 등불(Angler Lure) 촉수
-    gdoGfx.lineStyle(2.5, 0x34d399, 1);
+    // 4) [핵심] 눈을 덮는 칠흑의 고대 투구 (Ancient Black Greathelm)
+    gdoGfx.fillStyle(0x09080d, 1); // 완전한 칠흑색
+    gdoGfx.lineStyle(2, 0x334155, 0.95); // 투구의 고대 강철 모서리
     gdoGfx.beginPath();
-    gdoGfx.moveTo(56, 42);
-    gdoGfx.lineTo(72, 36);
-    gdoGfx.lineTo(78, 42);
+    gdoGfx.moveTo(68, 42); // 전방 뾰족한 투구 코날(Nasal guard)
+    gdoGfx.lineTo(54, 23); // 좌측 투구 뿔/어깨각
+    gdoGfx.lineTo(32, 27); // 후두부 상단
+    gdoGfx.lineTo(38, 42); // 후두부 중앙 홈
+    gdoGfx.lineTo(32, 57); // 후두부 하단
+    gdoGfx.lineTo(54, 61); // 우측 투구 뿔/어깨각
+    gdoGfx.closePath();
+    gdoGfx.fillPath();
     gdoGfx.strokePath();
-    gdoGfx.fillStyle(0xfef08a, 1);
-    gdoGfx.fillCircle(79, 42, 4.5); // 발광하는 등불 코어
+
+    // 투구 정수리를 가로지르는 고대 마루(Crest) 장식선
+    gdoGfx.lineStyle(2, 0x1e293b, 1);
+    gdoGfx.lineBetween(38, 42, 66, 42);
+
+    // 5) 투구 장갑 틈새로 어둡게 파인 '눈알 없는 짙은 청록색 안와(Void Sockets)'
+    // (동공 하이라이트 없이 죽은 심해의 색만 은은하게 감도는 슬릿 형태)
+    gdoGfx.fillStyle(0x0d9488, 0.75);
+    gdoGfx.fillTriangle(53, 28, 61, 36, 51, 35); // 왼쪽 눈 틈새
+    gdoGfx.fillTriangle(53, 56, 61, 48, 51, 49); // 오른쪽 눈 틈새 (2페이즈 각성 위치!)
 
     gdoGfx.generateTexture('great_deep_one', 84, 84);
     gdoGfx.destroy();
@@ -633,7 +635,7 @@ class MainScene extends Phaser.Scene {
         const isBtnArea = p.x > 500 && p.y > 300;
         if (isJoyArea || isBtnArea) return;
       }
-      
+
       if (p.rightButtonDown() || this.state.form === 'DAGON') {
         this.performParry();
       } else {
@@ -877,6 +879,53 @@ class MainScene extends Phaser.Scene {
           });
         });
       }
+    }
+
+    // ★ [크툴루 전용 대시 피니셔] 80킬 알파(-α) 각성 시에만 스페이스바 대시 시 '심해의 아가리' 폭발 해금!
+    if (this.state.form === 'CTHULHU' && this.state.isExAwakened) {
+      const isBeta = this.state.awakeningPath === 'BETA';
+      const crushRadius = isBeta ? 115 : 95;
+      const crushDmg = 65;
+
+      const abyssMaw = this.add
+        .circle(this.player.x, this.player.y, 20, 0x022c22, 0.75)
+        .setStrokeStyle(4, 0x10b981, 1)
+        .setDepth(13);
+
+      for (let i = 0; i < 6; i++) {
+        const ta = (i * Math.PI) / 3 + Math.random() * 0.3;
+        const dist = crushRadius * 0.65;
+        const spike = this.add
+          .triangle(
+            this.player.x + Math.cos(ta) * dist,
+            this.player.y + Math.sin(ta) * dist,
+            0, 18, 8, -14, 16, 18,
+            0x34d399, 0.9
+          )
+          .setBlendMode(Phaser.BlendModes.ADD)
+          .setDepth(14);
+
+        this.tweens.add({
+          targets: spike,
+          scaleY: 1.6,
+          alpha: 0,
+          duration: 280,
+          onComplete: () => spike.destroy(),
+        });
+      }
+
+      this.tweens.add({
+        targets: abyssMaw,
+        scale: crushRadius / 20,
+        alpha: 0,
+        duration: 260,
+        ease: 'Cubic.easeOut',
+        onComplete: () => abyssMaw.destroy(),
+      });
+
+      this.cameras.main.shake(120, 0.012);
+      // 모아둔 적들을 제자리에서 짓이기는 강력한 광역 딜
+      this.applyAreaDamage(this.player.x, this.player.y, crushRadius, null, crushDmg);
     }
 
     // 5. 대시 속도 종료 및 초기화 (0.12초로 아주 기민하게 설정)
@@ -1375,14 +1424,14 @@ class MainScene extends Phaser.Scene {
     if (this.state.form === 'THE FAITHLESS' && this.state.awakeningPath === 'BETA') {
       if (this.bloodPools) {
         let steppingOnBlood = false;
-        
+
         for (const pool of this.bloodPools) {
           if (pool.active && Phaser.Math.Distance.Between(this.player.x, this.player.y, pool.x, pool.y) < 35) {
             steppingOnBlood = true;
             break;
           }
         }
-        
+
         // 장판을 밟고 있다면 현재 시간 기준 3초(3000ms) 뒤로 광기 버프 지속시간 연장
         if (steppingOnBlood) {
           this.state.isMadness = true;
@@ -1404,11 +1453,11 @@ class MainScene extends Phaser.Scene {
           // 끓어오르는 핏방울 파티클
           if (Math.random() < 0.35) {
             const bp = this.add.circle(
-              this.player.x + Phaser.Math.Between(-15, 15), 
-              this.player.y + Phaser.Math.Between(-15, 15), 
+              this.player.x + Phaser.Math.Between(-15, 15),
+              this.player.y + Phaser.Math.Between(-15, 15),
               Math.random() * 3 + 1.5, 0xdc2626, 0.85
             ).setDepth(11);
-            
+
             this.tweens.add({ targets: bp, y: bp.y - 25, alpha: 0, duration: 450, onComplete: () => bp.destroy() });
           }
         }
@@ -1729,14 +1778,14 @@ class MainScene extends Phaser.Scene {
       this.state.form === 'HASTUR'
         ? 0xfacc15
         : this.state.form === 'NYARLATHOTEP'
-        ? 0xc084fc
-        : this.state.form === 'CTHULHU'
-        ? 0x10b981
-        : this.state.form === 'CTHUGHA'
-        ? 0xf97316
-        : this.state.form === 'THE FAITHLESS'
-        ? 0xef4444
-        : 0xffffff;
+          ? 0xc084fc
+          : this.state.form === 'CTHULHU'
+            ? 0x10b981
+            : this.state.form === 'CTHUGHA'
+              ? 0xf97316
+              : this.state.form === 'THE FAITHLESS'
+                ? 0xef4444
+                : 0xffffff;
 
     const halfArc = Phaser.Math.DegToRad(GAME_CONFIG.PLAYER.DAGGER_ARC_DEG / 2);
     const range = GAME_CONFIG.PLAYER.DAGGER_RANGE;
@@ -1787,27 +1836,30 @@ class MainScene extends Phaser.Scene {
 
     this.time.delayedCall(75, () => slashGfx.destroy());
 
-    // 크툴루 전용: 평상시 2초 쿨타임 3연발 -> 80킬 초월 시 1.4초 쿨타임 5연발!
+    // =========================================================================
+    // [크툴루 평타] 25킬당 촉수 1발 추가 (최초 1발은 블랙홀 인력, 이후 탄은 넉백 없는 광역딜)
+    // =========================================================================
     if (this.state.form === 'CTHULHU') {
       const now = this.time.now;
       const isBeta = this.state.awakeningPath === 'BETA';
-      // ★ 기본 2.0초 -> 알파 1.4초 -> 베타 1.15초로 단축!
       const cthulhuCd = isBeta ? 1150 : this.state.isExAwakened ? 1400 : 2000;
-      const burstCount = this.state.isExAwakened ? 5 : 3;
 
-      if (
-        !this.lastCthulhuSpitTime ||
-        now - this.lastCthulhuSpitTime >= cthulhuCd
-      ) {
+      // ★ 핵심: 25킬마다 탄환 1발씩 추가 (기본 1발 + 킬수/25), 알파 각성 시 +2발 보너스
+      const bonusShots = Math.floor(this.state.kills / 25);
+      const totalShots = Math.min(1 + bonusShots + (this.state.isExAwakened ? 2 : 0), 7); // 최대 7발 제한
+
+      if (!this.lastCthulhuSpitTime || now - this.lastCthulhuSpitTime >= cthulhuCd) {
         this.lastCthulhuSpitTime = now;
         const shootAngle = angle;
 
-        for (let b = 0; b < burstCount; b++) {
-          this.time.delayedCall(b * 110, () => {
+        for (let b = 0; b < totalShots; b++) {
+          this.time.delayedCall(b * 90, () => {
             if (this.player && this.player.active) {
-              const spread =
-                (Math.random() - 0.5) * (this.state.isExAwakened ? 0.55 : 0.35);
-              this.fireCthulhuTendril(shootAngle + spread);
+              const spread = (Math.random() - 0.5) * (0.15 + totalShots * 0.05);
+
+              // ★ 첫 번째 탄(b === 0)에게만 블랙홀 인력 부여!
+              const isBlackHole = (b === 0);
+              this.fireCthulhuTendril(shootAngle + spread, isBlackHole);
             }
           });
         }
@@ -1835,13 +1887,14 @@ class MainScene extends Phaser.Scene {
       // 3. [160킬 베타(-β): The Butcher] 피 장판 유무에 따른 공격 변화!
       if (isBeta) {
         if (this.state.isMadness) {
+          return;
           // 장판 밟음(광기 폭주): 피의 부메랑 투척!
           this.fireBloodBoomerang(angle);
         } else {
           // 장판 없음(기본): 전방을 휩쓰는 거대한 피의 검기(혈사파) 발사!
           const bloodWave = this.add.ellipse(slashX, slashY, 130, 15, 0xdc2626, 0.9)
             .setRotation(angle + Math.PI / 2).setBlendMode(Phaser.BlendModes.ADD).setDepth(14);
-          
+
           this.tweens.add({
             targets: bloodWave,
             x: slashX + Math.cos(angle) * 280,
@@ -1850,14 +1903,14 @@ class MainScene extends Phaser.Scene {
             duration: 350, ease: 'Cubic.easeOut',
             onComplete: () => bloodWave.destroy()
           });
-          
-          // 혈사파 비행 경로 광역 타격 (사거리 140 반경 내 65 데미지)
-          this.applyAreaDamage(slashX + Math.cos(angle) * 140, slashY + Math.sin(angle) * 140, 160, angle, 65);
+
+          // 혈사파 비행 경로 광역 타격 (사거리 120 반경 내 42 데미지)
+          this.applyAreaDamage(slashX + Math.cos(angle) * 140, slashY + Math.sin(angle) * 120, 125, angle, 42);
         }
       }
 
       // 4. [200킬 오메가(-Ω): GodSlayer] 기본적으로 혈사파 탑재
-      if (isOmega && !isBeta) { 
+      if (isOmega && !isBeta) {
         const bloodWave = this.add.ellipse(slashX, slashY, 150, 18, 0xef4444, 0.95)
           .setRotation(angle + Math.PI / 2).setBlendMode(Phaser.BlendModes.ADD).setDepth(14);
         this.tweens.add({
@@ -1868,22 +1921,22 @@ class MainScene extends Phaser.Scene {
       }
 
       // 5. 근접 타격 판정 및 데미지 연산 (감마는 사거리와 화력이 극대화)
-      const hitRange = isGamma ? 115 : (this.state.isExAwakened ? 88 : 68);
-      const baseDmg = isGamma ? 85 : (this.state.isExAwakened ? 68 : 55);
+      const hitRange = isGamma ? 98 : (this.state.isExAwakened ? 82 : 68);
+      const baseDmg = isGamma ? 60 : (this.state.isExAwakened ? 50 : 42);
 
       const nearby = [...this.enemies.getChildren()];
       nearby.forEach((e) => {
         if (!e.active) return;
         const effectiveRadius = hitRange + (e.isBoss ? 24 : 0);
-        
+
         if (Phaser.Math.Distance.Between(slashX, slashY, e.x, e.y) <= effectiveRadius) {
           // 본체 타격 데미지
           this.damageEnemy(e, baseDmg, angle, e.isWindingUp);
 
           // ★ 분기별 흡혈률 연산: 베타는 35%, 오메가는 45%, 감마는 리스크(10%)
-          const healChance = isOmega ? 45 : (isBeta ? 35 : (isGamma ? 10 : 18));
+          const healChance = isOmega ? 20 : (isBeta ? 8 : (isGamma ? 14 : 10));
           const healAmt = isOmega ? 4 : (isBeta ? 3 : 2);
-          
+
           if (Phaser.Math.Between(1, 100) <= healChance && this.state.hp < this.state.maxHp) {
             this.state.hp = Math.min(this.state.maxHp, this.state.hp + healAmt);
             this.updateHUD();
@@ -1897,9 +1950,34 @@ class MainScene extends Phaser.Scene {
       });
     }
 
-      
-    // ★ [크투가 평타] 화상 부여 + 화상 적 타격 시 화염 링 폭발
+
+    // ★ [크투가 평타 리워크] 사거리 대폭 확장(105px) + 화상 적 타격 시 화염 링 & 30% 확률 화염 장판!
     else if (this.state.form === 'CTHUGHA') {
+      const cthughaRange = GAME_CONFIG.PLAYER.DAGGER_RANGE + 43; // 62 + 43 = 105px!
+
+      // 넓어진 사거리를 시각적으로 보여주는 전방 화염 호(Arc) 이펙트 추가
+      const flameWave = this.add
+        .ellipse(
+          this.player.x + Math.cos(angle) * 58,
+          this.player.y + Math.sin(angle) * 58,
+          96,
+          28,
+          0xf97316,
+          0.75
+        )
+        .setRotation(angle)
+        .setBlendMode(Phaser.BlendModes.ADD)
+        .setDepth(13);
+
+      this.tweens.add({
+        targets: flameWave,
+        scaleX: 1.35,
+        scaleY: 1.8,
+        alpha: 0,
+        duration: 140,
+        onComplete: () => flameWave.destroy(),
+      });
+
       this.enemies.getChildren().forEach((e) => {
         if (!e.active) return;
         const dist = Phaser.Math.Distance.Between(
@@ -1920,11 +1998,13 @@ class MainScene extends Phaser.Scene {
         );
 
         if (
-          dist <= GAME_CONFIG.PLAYER.DAGGER_RANGE + 15 + (e.isBoss ? 28 : 0) &&
-          diff <= halfArc + 0.2
+          dist <= cthughaRange + (e.isBoss ? 28 : 0) &&
+          diff <= halfArc + 0.28
         ) {
           const isCounter = e.isWindingUp;
           const wasBurning = e.isBurning;
+          const ex = e.x;
+          const ey = e.y;
 
           this.damageEnemy(
             e,
@@ -1933,13 +2013,17 @@ class MainScene extends Phaser.Scene {
             isCounter
           );
 
+          // 이미 불타고 있던 적을 쳤을 때: 화염 링 폭발 + (80킬 알파 이상) 30% 확률로 화염 장판 생성!
+          if (wasBurning) {
+            this.triggerCthughaRing({ active: true, x: ex, y: ey });
+
+            if (this.state.isExAwakened && Math.random() < 0.3) {
+              this.spawnCthughaFireZone(ex, ey);
+            }
+          }
+
           if (e.active) {
             this.applyBurn(e);
-            if (wasBurning) {
-              this.triggerCthughaRing(e);
-            }
-          } else if (wasBurning) {
-            this.triggerCthughaRing({ active: true, x: e.x, y: e.y });
           }
         }
       });
@@ -1969,6 +2053,8 @@ class MainScene extends Phaser.Scene {
           });
         });
       }
+
+
 
       this.enemies.getChildren().forEach((enemy) => {
         if (!enemy.active) return;
@@ -2009,13 +2095,36 @@ class MainScene extends Phaser.Scene {
             isCounter
           );
 
-          // ★ 니알라토텝 전용: 평타 적중 시 혼돈 낙인 부여 & 카운터 시 등 뒤로 안전 도약 + 즉시 격발!
-          if (this.state.form === 'NYARLATHOTEP' && enemy.active) {
-            this.addChaosMark(enemy, isNyarlaChaos ? 2 : 1); // 폭주 중엔 2중첩씩!
-            if (isCounter) {
-              this.triggerNyarlaBlink(enemy, false);
+          if (dist <= effectiveRange && diff <= effectiveArc) {
+            const isCounter = enemy.isWindingUp;
+            // ★ 하스터 폼일 때는 평타도 적을 밀쳐내지 않고 제자리에 묶어둠!
+            const hitDir = this.state.form === 'HASTUR' ? null : angle;
+
+            this.damageEnemy(
+              enemy,
+              GAME_CONFIG.PLAYER.DAGGER_DAMAGE,
+              hitDir,
+              isCounter
+            );
+
+            // ★ [하스터 전용] 평타 적중 시 감전 1스택 부여 + 80킬(-α) 이후 연쇄 번개 발동!
+            if (this.state.form === 'HASTUR' && enemy.active) {
+              this.addShockStack(enemy, 1);
+              if (this.state.isExAwakened) {
+                this.triggerHasturSlashChain(enemy);
+              }
+            }
+
+            // [기존 니알라토텝 전용 평타 처리]
+            if (this.state.form === 'NYARLATHOTEP' && enemy.active) {
+              this.addChaosMark(enemy, isNyarlaChaos ? 2 : 1);
+              if (isCounter) {
+                this.triggerNyarlaBlink(enemy, false);
+              }
             }
           }
+
+
         }
       });
     }
@@ -2104,7 +2213,7 @@ class MainScene extends Phaser.Scene {
 
     let finalDmg =
       baseDamage *
-      (this.state.form === 'THE FAITHLESS' ? 1.35 : 1) *
+      (this.state.form === 'THE FAITHLESS' ? 1.15 : 1) *
       (this.state.dmgMult || 1);
 
     // ★ 2. 그레이트 딥 원 특성: 받는 피해 70% 적용 (30% 피해 감소)
@@ -2128,7 +2237,7 @@ class MainScene extends Phaser.Scene {
       if (!enemy || !enemy.active) return;
       if (enemy.isWindingUp) return; // 공격 전조 중이면 전조 색상 유지
 
-      if (enemy.isBoss && enemy.phase === 2) {
+      if (enemy.isBoss && enemy.phase === 2 && !enemy.isGreatDeepOne) {
         enemy.setTint(0xfca5a5);
       } else if (enemy.isBurning) {
         enemy.setTint(0xf97316); // 화상 상태면 주황빛 유지
@@ -2199,14 +2308,7 @@ class MainScene extends Phaser.Scene {
     if (enemy.chaosTimer) enemy.chaosTimer.remove();
     if (enemy.burnTimer) enemy.burnTimer.remove(); // 화상 타이머 정리
 
-    if (this.state.form === 'CTHUGHA' && enemy.isBurning) {
-      // 80킬 알파 이상일 때만 장판 생성 (알파: 54px, 베타: 78px로 크기 조절)
-      if (this.state.isExAwakened) {
-        const isBeta = this.state.awakeningPath === 'BETA';
-        const zoneRadius = isBeta ? 78 : 54;
-        this.spawnCthughaFireZone(enemy.x, enemy.y, zoneRadius);
-      }
-    }
+
     // ★ [크투가-β 전용] 화상 상태에서 사망 시 불타는 영혼(화염구) 사출!
     if (
       this.state.form === 'CTHUGHA' &&
@@ -2457,7 +2559,7 @@ class MainScene extends Phaser.Scene {
       HASTUR: { betaHp: 45, betaMult: 1.3, gammaMult: 1.9 },
       NODENS: { betaHp: 40, betaMult: 1.35, gammaMult: 2.0 },
       NYARLATHOTEP: { betaHp: 40, betaMult: 1.35, gammaMult: 2.05 },
-      'THE FAITHLESS': { betaHp: 50, betaMult: 1.35, gammaMult: 2.1 },
+      'THE FAITHLESS': { betaHp: 30, betaMult: 1.2, gammaMult: 1.75 },
       'MORTAL CULTIST': { betaHp: 50, betaMult: 1.4, gammaMult: 2.2 },
       CTHUGHA: { betaHp: 50, betaMult: 1.35, gammaMult: 2.0 },
     };
@@ -2508,7 +2610,7 @@ class MainScene extends Phaser.Scene {
         this.hudGuide.setText(`⚠️ [The Judgement] 이단 심문관들을 직접 단죄합니다! 공격 속도가 한계를 돌파합니다. (데미지 x${st.gammaMult})`).setColor('#f43f5e');
       }
     }
-    
+
 
     // 3. 플레이어 중심 각성 충격파 링 연출 & 주변 적 넉백
     const ringColor = tierType === 'GAMMA' ? 0xff003c : 0x38bdf8;
@@ -2614,6 +2716,110 @@ class MainScene extends Phaser.Scene {
     this.updateHUD();
   }
 
+  // ============================================================================
+  // [하스터 전용 기믹] 황색의 감전 중첩 (10% / 20% 둔화 -> 3중첩 시 1초 마비)
+  // ============================================================================
+  addShockStack(enemy, stacks = 1) {
+    if (!enemy || !enemy.active) return;
+
+    // 이미 마비 상태인 적은 마비가 풀릴 때까지 스택이 쌓이지 않음
+    if (enemy.isParalyzed) return;
+
+    enemy.shockStacks = (enemy.shockStacks || 0) + stacks;
+
+    // 4초간 추가 감전이 없으면 스택 자연 소멸
+    if (enemy.shockTimer) enemy.shockTimer.remove();
+
+    // ★ 3중첩 도달 시: 스택 소모 + 1초 마비(Stun) + 과전류 스파크 폭발!
+    if (enemy.shockStacks >= 3) {
+      enemy.shockStacks = 0;
+      enemy.isParalyzed = true;
+
+      // 일반 몹은 그 자리에서 즉시 정지 및 공격 전조 강제 캔슬!
+      if (!enemy.isBoss && enemy.body) {
+        enemy.setVelocity(0, 0);
+        enemy.isWindingUp = false;
+      }
+
+      // 마비 과전류 폭발 이펙트 및 추가 데미지(35, 넉백 없음)
+      const stunRing = this.add
+        .circle(enemy.x, enemy.y, 24, 0xfef08a, 0.65)
+        .setStrokeStyle(3, 0xfacc15, 1)
+        .setBlendMode(Phaser.BlendModes.ADD)
+        .setDepth(15);
+
+      this.tweens.add({
+        targets: stunRing,
+        scale: 1.8,
+        alpha: 0,
+        duration: 240,
+        onComplete: () => stunRing.destroy(),
+      });
+
+      this.damageEnemy(enemy, 35, null, false);
+
+      // 1초(1000ms) 뒤 마비 해제
+      enemy.shockTimer = this.time.delayedCall(1000, () => {
+        if (enemy && enemy.active) {
+          enemy.isParalyzed = false;
+        }
+      });
+    } else {
+      // 1~2중첩 상태: 4초 유지 타이머
+      enemy.shockTimer = this.time.delayedCall(4000, () => {
+        if (enemy && enemy.active) {
+          enemy.shockStacks = 0;
+        }
+      });
+    }
+  }
+
+  // ★ [80킬 하스터-α 전용] 평타 적중 시 주변 적에게 뻗어나가는 연쇄 번개
+  triggerHasturSlashChain(sourceEnemy) {
+    if (!sourceEnemy || !sourceEnemy.active) return;
+
+    // 다단 연쇄 시 과부하 방지를 위한 0.1초 내부 쿨타임
+    const now = this.time.now;
+    if (this.lastSlashChainTime && now - this.lastSlashChainTime < 100) return;
+    this.lastSlashChainTime = now;
+
+    const sx = sourceEnemy.x;
+    const sy = sourceEnemy.y;
+
+    const chainTargets = this.enemies
+      .getChildren()
+      .filter(
+        (e) =>
+          e.active &&
+          e !== sourceEnemy &&
+          Phaser.Math.Distance.Between(sx, sy, e.x, e.y) <= 150
+      )
+      .slice(0, 2); // 최대 2명에게 전이
+
+    chainTargets.forEach((ct) => {
+      const chainGfx = this.add
+        .graphics()
+        .setDepth(14)
+        .setBlendMode(Phaser.BlendModes.ADD);
+      chainGfx.lineStyle(2.5, 0xfef08a, 0.95);
+      chainGfx.beginPath().moveTo(sx, sy);
+      const midX = (sx + ct.x) / 2 + Phaser.Math.Between(-14, 14);
+      const midY = (sy + ct.y) / 2 + Phaser.Math.Between(-14, 14);
+      chainGfx.lineTo(midX, midY).lineTo(ct.x, ct.y).strokePath();
+
+      this.tweens.add({
+        targets: chainGfx,
+        alpha: 0,
+        duration: 160,
+        onComplete: () => chainGfx.destroy(),
+      });
+
+      // 넉백 없이(null) 연쇄 번개 데미지(28) + 감전 1스택 전이!
+      this.damageEnemy(ct, 28, null, false);
+      if (ct.active) this.addShockStack(ct, 1);
+    });
+  }
+
   // 2. 기어오는 혼돈 - 니알라토텝 각성
   awakenNyarlathotep() {
     this.state.form = 'NYARLATHOTEP';
@@ -2717,6 +2923,39 @@ class MainScene extends Phaser.Scene {
           this.chaosMarkGfx.fillCircle(fx, fy, 4.5);
           this.chaosMarkGfx.fillStyle(0xfef08a, 1);
           this.chaosMarkGfx.fillCircle(fx, fy, 2);
+        }
+      }
+
+      // 3. [하스터] 감전 중첩(1~2스택) 및 마비(Paralyzed) 상태 렌더링
+      if (e.isParalyzed) {
+        // ★ 마비 상태: 적의 몸을 감싸고 파지직거리는 황금빛 지그재그 감전 속박 링
+        const pRadius = e.isBoss ? 36 : 20;
+        this.chaosMarkGfx.lineStyle(2.5, 0xfef08a, 0.95);
+        this.chaosMarkGfx.beginPath();
+        for (let i = 0; i <= 8; i++) {
+          const a = (i * Math.PI) / 4 + time * 0.02;
+          const jitter = i % 2 === 0 ? 4 : -4;
+          const px = e.x + Math.cos(a) * (pRadius + jitter);
+          const py = e.y + Math.sin(a) * (pRadius + jitter);
+          if (i === 0) this.chaosMarkGfx.moveTo(px, py);
+          else this.chaosMarkGfx.lineTo(px, py);
+        }
+        this.chaosMarkGfx.closePath().strokePath();
+      } else if (e.shockStacks && e.shockStacks > 0) {
+        // ★ 1~2중첩 둔화 상태: 적 주변을 궤도 회전하는 황금 스파크 구체 (1개 또는 2개)
+        const sRadius = e.isBoss ? 34 : 20;
+        this.chaosMarkGfx.lineStyle(1.5, 0xfacc15, 0.4 + e.shockStacks * 0.2);
+        this.chaosMarkGfx.strokeCircle(e.x, e.y, sRadius);
+
+        for (let i = 0; i < e.shockStacks; i++) {
+          const sAngle = time * 0.008 + i * Math.PI;
+          const sx = e.x + Math.cos(sAngle) * sRadius;
+          const sy = e.y + Math.sin(sAngle) * sRadius;
+
+          this.chaosMarkGfx.fillStyle(0xfacc15, 1);
+          this.chaosMarkGfx.fillCircle(sx, sy, 4);
+          this.chaosMarkGfx.fillStyle(0xffffff, 1);
+          this.chaosMarkGfx.fillCircle(sx, sy, 1.8);
         }
       }
     });
@@ -3385,8 +3624,8 @@ class MainScene extends Phaser.Scene {
     this.state.form = 'THE FAITHLESS';
     if (this.shrines) this.shrines.clear(true, true);
 
-    // ★ 스탯 표준화: 고난도 생존 보상으로 최대 체력 +40 & 풀피 회복
-    this.state.maxHp += 40;
+    // ★ 스탯 표준화: 고난도 생존 보상으로 최대 체력 +20 & 풀피 회복
+    this.state.maxHp += 20;
     this.state.hp = this.state.maxHp;
 
     this.cameras.main.flash(800, 185, 28, 28);
@@ -3406,6 +3645,7 @@ class MainScene extends Phaser.Scene {
   }
 
   spawnBloodPool(x, y) {
+    return; // ★ [밸런스 패치] 피 장판 생성 임시 비활성화
     if (!this.bloodPools) this.bloodPools = [];
 
     // 바닥에 깔리는 선혈 장판
@@ -3441,6 +3681,7 @@ class MainScene extends Phaser.Scene {
   }
 
   fireBloodBoomerang(angle) {
+    return; // ★ [밸런스 패치] 피의 부메랑 투척 임시 비활성화
     this.cameras.main.shake(120, 0.012);
 
     const bx = this.player.x;
@@ -3461,7 +3702,7 @@ class MainScene extends Phaser.Scene {
     bGfx.strokePath();
 
     const boomerang = this.add.container(bx, by, [bGfx]).setDepth(15);
-    
+
     // 미친듯이 회전하는 애니메이션
     this.tweens.add({
       targets: boomerang,
@@ -3487,10 +3728,10 @@ class MainScene extends Phaser.Scene {
           if (e.active && Phaser.Math.Distance.Between(boomerang.x, boomerang.y, e.x, e.y) < 40 + (e.isBoss ? 24 : 0)) {
             if (!e.lastBoomerangHit || this.time.now - e.lastBoomerangHit > 120) {
               e.lastBoomerangHit = this.time.now;
-              
+
               // 넉백 없이(null) 제자리에서 믹서기처럼 다단히트 (데미지: 38)
               this.damageEnemy(e, 38, null, false);
-              
+
               // 부메랑 흡혈(타격당 3% 확률로 1 회복)
               if (Math.random() < 0.03 && this.state.hp < this.state.maxHp) {
                 this.state.hp = Math.min(this.state.maxHp, this.state.hp + 1);
@@ -3898,11 +4139,11 @@ class MainScene extends Phaser.Scene {
         const w = Math.sin(time * 0.012 + i * 2 + s) * (s * waveAmp);
         this.tentacleGfx.lineTo(
           this.player.x +
-            Math.cos(baseAngle) * (s * lengthStep) +
-            Math.cos(baseAngle + 1.57) * w,
+          Math.cos(baseAngle) * (s * lengthStep) +
+          Math.cos(baseAngle + 1.57) * w,
           this.player.y +
-            Math.sin(baseAngle) * (s * lengthStep) +
-            Math.sin(baseAngle + 1.57) * w
+          Math.sin(baseAngle) * (s * lengthStep) +
+          Math.sin(baseAngle + 1.57) * w
         );
       }
       this.tentacleGfx.strokePath();
@@ -3928,6 +4169,14 @@ class MainScene extends Phaser.Scene {
     proj.isCthulhuSeeker = true;
     proj.isPlayerProjectile = true;
     proj.damage = this.state.isExAwakened ? 55 : 48;
+
+    // ★ 투사체에 블랙홀 인력 여부 플래그 장착!
+    proj.isBlackHole = isBlackHole;
+
+    // 첫 번째 블랙홀 탄은 시각적으로 살짝 더 크고 짙은 에메랄드 코어로 구별감 부여
+    if (isBlackHole) {
+      proj.setScale(1.25);
+    }
 
     const speed = 340;
     proj.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
@@ -4074,73 +4323,49 @@ class MainScene extends Phaser.Scene {
     const ex = proj.x;
     const ey = proj.y;
     const isBeta = this.state.awakeningPath === 'BETA';
-    const explosionRadius = isBeta ? 115 : 85; // ★ 폭발 범위 85 -> 115로 증가!
+    const explosionRadius = isBeta ? 115 : 85;
     const explosionDmg = proj.damage || 48;
+    const isBlackHole = proj.isBlackHole; // ★ 첫 번째 탄 여부 확인
 
-    // 1. 투사체 및 꼬리 그래픽 즉시 제거
     if (proj.body) proj.body.stop();
     if (proj.gfx) proj.gfx.destroy();
     proj.destroy();
 
-    // 2. 시각 연출 A: 팽창하는 심해 에메랄드 충격파 링
+    // 첫 탄(블랙홀) 폭발 시 시각적으로 더 묵직한 에메랄드 충격파 연출
     const ring = this.add
-      .circle(ex, ey, 10, 0x10b981, 0.45)
-      .setStrokeStyle(3, 0x34d399, 0.9)
+      .circle(ex, ey, 10, isBlackHole ? 0x059669 : 0x10b981, isBlackHole ? 0.6 : 0.45)
+      .setStrokeStyle(isBlackHole ? 4 : 3, isBlackHole ? 0x6ee7b7 : 0x34d399, 0.9)
       .setBlendMode(Phaser.BlendModes.ADD)
       .setDepth(14);
 
     this.tweens.add({
       targets: ring,
-      scale: explosionRadius / 10,
+      scale: (isBlackHole ? explosionRadius * 1.2 : explosionRadius) / 10,
       alpha: 0,
-      duration: 260,
+      duration: isBlackHole ? 320 : 260,
       ease: 'Cubic.easeOut',
       onComplete: () => ring.destroy(),
     });
 
-    // 3. 시각 연출 B: 크툴루 색상(청록/에메랄드/심해색) 스파크 파편 10개 방사
-    const colors = [0x10b981, 0x34d399, 0x059669, 0x6ee7b7];
-    for (let i = 0; i < 10; i++) {
-      const sparkColor = Phaser.Utils.Array.GetRandom(colors);
-      const spark = this.add
-        .circle(ex, ey, Phaser.Math.Between(2, 4), sparkColor, 0.95)
-        .setBlendMode(Phaser.BlendModes.ADD)
-        .setDepth(15);
+    this.cameras.main.shake(isBlackHole ? 120 : 90, isBlackHole ? 0.009 : 0.006);
 
-      const sparkAngle = Math.random() * Math.PI * 2;
-      const sparkDist = Phaser.Math.Between(20, explosionRadius * 0.85);
-
-      this.tweens.add({
-        targets: spark,
-        x: ex + Math.cos(sparkAngle) * sparkDist,
-        y: ey + Math.sin(sparkAngle) * sparkDist,
-        alpha: 0,
-        scale: 0.1,
-        duration: Phaser.Math.Between(180, 300),
-        ease: 'Quad.easeOut',
-        onComplete: () => spark.destroy(),
-      });
-    }
-
-    // 미세한 화면 진동으로 타격감 부여
-    this.cameras.main.shake(90, 0.006);
-
-    // 4. 광역 데미지 & 방사형 넉백 판정 (hitAngle 완벽 전달!)
+    // 광역 데미지 및 넉백 분기 처리
     const enemyList = [...this.enemies.getChildren()];
     enemyList.forEach((enemy) => {
       if (!enemy || !enemy.active) return;
 
       const dist = Phaser.Math.Distance.Between(ex, ey, enemy.x, enemy.y);
       const hitRadius = explosionRadius + (enemy.isBoss ? 24 : 0);
-      if (dist <= hitRadius) {
-        // 폭발 중심(ex, ey)에서 적(enemy)을 밀어내는 정확한 각도 계산
-        const knockbackAngle =
-          dist < 1
-            ? Math.random() * Math.PI * 2
-            : Phaser.Math.Angle.Between(ex, ey, enemy.x, enemy.y);
 
-        // 데미지 부여 및 기본 넉백 실행 (NaN 버그 원천 차단)
-        this.damageEnemy(enemy, explosionDmg, knockbackAngle, false);
+      if (dist <= hitRadius) {
+        let hitAngle = null; // 기본(추가 탄환들)은 넉백 없음(null)
+
+        if (isBlackHole) {
+          // ★ 오직 첫 번째 탄(블랙홀 탄)만 폭발 중심(ex, ey)으로 적들을 강하게 끌어당김!
+          hitAngle = dist < 2 ? null : Phaser.Math.Angle.Between(enemy.x, enemy.y, ex, ey);
+        }
+
+        this.damageEnemy(enemy, explosionDmg, hitAngle, false);
       }
     });
   }
@@ -4310,21 +4535,22 @@ class MainScene extends Phaser.Scene {
 
         this.cameras.main.shake(80, 0.006);
 
-        // 3. 직격 및 인장 광역 데미지 판정
+        // 3. 직격 및 인장 광역 데미지 판정 (★ 넉백 제거: hitAngle에 null 전달 + 감전 1스택!)
         const enemies = [...this.enemies.getChildren()];
         enemies.forEach((e) => {
           if (!e || !e.active) return;
           const d = Phaser.Math.Distance.Between(tx, ty, e.x, e.y);
 
           if (e === target) {
-            this.damageEnemy(e, 65, mainAngle, false);
+            this.damageEnemy(e, 65, null, false);
+            if (e.active) this.addShockStack(e, 1);
           } else if (d <= signRadius) {
-            const splashAngle = Phaser.Math.Angle.Between(tx, ty, e.x, e.y);
-            this.damageEnemy(e, 35, splashAngle, false);
+            this.damageEnemy(e, 35, null, false);
+            if (e.active) this.addShockStack(e, 1);
           }
         });
 
-        // 4. [80킬 알파 특성 유지] 연쇄 번개 전이
+        // 4. [80킬 알파 특성] 연쇄 번개 전이 (★ 넉백 제거 + 감전 1스택!)
         if (this.state.isExAwakened) {
           const chainTargets = this.enemies
             .getChildren()
@@ -4354,10 +4580,11 @@ class MainScene extends Phaser.Scene {
               onComplete: () => chainGfx.destroy(),
             });
 
-            const cAngle = Phaser.Math.Angle.Between(tx, ty, ct.x, ct.y);
-            this.damageEnemy(ct, 45, cAngle, false);
+            this.damageEnemy(ct, 45, null, false);
+            if (ct.active) this.addShockStack(ct, 1);
           });
         }
+
       });
     });
   }
@@ -4756,6 +4983,25 @@ class MainScene extends Phaser.Scene {
   handleGreatDeepOneAI(time) {
     if (!this.boss || !this.boss.active) return;
 
+    // ★ [2페이즈 전용] 투구 속 오른쪽 눈(한쪽 눈) 위치에 포탈 파티클 & 안광 코어 실시간 고정!
+    if (this.boss.phase === 2 && this.bossEyeCore && this.bossEyeParticles) {
+      const rot = this.boss.rotation;
+      const sc = this.boss.scaleX;
+      // 84x84 텍스처 중심(42,42) 기준 투구 오른쪽 눈 슬릿 오프셋: 앞쪽 +16px, 우측 +11px
+      const lx = 16 * sc;
+      const ly = 11 * sc;
+      const eyeX = this.boss.x + (lx * Math.cos(rot) - ly * Math.sin(rot));
+      const eyeY = this.boss.y + (lx * Math.sin(rot) + ly * Math.cos(rot));
+
+      this.bossEyeCore.setPosition(eyeX, eyeY);
+      this.bossEyeParticles.setPosition(eyeX, eyeY);
+
+      // 은신(잠수) 중일 때는 안광도 함께 어두워졌다가 출현 시 번쩍임!
+      const isVisible = this.boss.alpha > 0.4;
+      this.bossEyeCore.setVisible(isVisible);
+      this.bossEyeParticles.emitting = isVisible;
+    }
+
     // 체력 50% 이하 시 2페이즈 돌입
     if (this.boss.phase === 1 && this.boss.hp <= this.boss.maxHp * 0.5) {
       this.triggerGreatDeepOnePhase2();
@@ -4828,10 +5074,36 @@ class MainScene extends Phaser.Scene {
     });
 
     this.boss.setScale(1.18);
-    this.boss.setTint(0xc084fc);
+    // ★ 칠흑색 투구 간지를 살리기 위해 보스 본체에는 setTint를 씌우지 않고 원본 유지!
+    this.boss.clearTint();
+
+    // ★ [핵심 연출] 투구 속 오른쪽 눈 한쪽에서만 뿜어져 나오는 Act 2 포탈 심연 파티클!
+    if (this.bossEyeParticles) this.bossEyeParticles.destroy();
+    if (this.bossEyeCore) this.bossEyeCore.destroy();
+
+    // 1) 타오르는 외눈 안광 코어
+    this.bossEyeCore = this.add
+      .circle(this.boss.x, this.boss.y, 4.5, 0xe879f9, 1)
+      .setStrokeStyle(2, 0x10b981, 0.9)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(14);
+
+    // 2) Act 2 포탈 중심부와 동일한 심연 입자 방출기 (움직일 때마다 안광 궤적을 남김)
+    this.bossEyeParticles = this.add
+      .particles(0, 0, 'px', {
+        color: [0xe879f9, 0xa855f7, 0x10b981, 0x064e3b],
+        scale: { start: 2.4, end: 0 },
+        alpha: { start: 0.95, end: 0 },
+        speed: { min: 15, max: 55 },
+        angle: { min: 0, max: 360 },
+        lifespan: { min: 220, max: 450 },
+        frequency: 22,
+        blendMode: 'ADD',
+      })
+      .setDepth(13);
 
     this.hudGuide
-      .setText('⚠️ [PHASE 2] 그레이트 딥 원이 공간의 틈새로 모습을 감추며 공허의 환영을 소환합니다!')
+      .setText('⚠️ [PHASE 2] 고대 투구 너머로 심연의 안광이 타오릅니다!')
       .setColor('#e879f9');
 
     this.time.delayedCall(900, () => {
@@ -5505,6 +5777,15 @@ class MainScene extends Phaser.Scene {
       if (!e.active || e.isKnockedBack) return;
       if (e.isBoss) return;
 
+      // ★ 1. [하스터 3중첩 마비] 마비 상태인 적은 이동 및 공격 판정 완전 정지!
+      if (e.isParalyzed) {
+        e.setVelocity(0, 0);
+        return;
+      }
+
+      // ★ 2. [하스터 1~2중첩 둔화] 1스택: 0.9배(10% 둔화), 2스택: 0.8배(20% 둔화)
+      const slowMult = e.shockStacks ? 1 - Math.min(e.shockStacks, 2) * 0.1 : 1.0;
+
       const dist = Phaser.Math.Distance.Between(
         e.x,
         e.y,
@@ -5588,11 +5869,7 @@ class MainScene extends Phaser.Scene {
           });
         } else if (!e.isWindingUp && !e.isAttacking) {
           // Act 2 몹은 별도의 baseSpeed를 세팅해뒀다면 그것을 사용
-          this.physics.moveToObject(
-            e,
-            this.player,
-            e.baseSpeed || GAME_CONFIG.RANGED_ENEMY.SPEED
-          );
+          this.physics.moveToObject(e, this.player, GAME_CONFIG.ENEMY.SPEED * slowMult);
         }
         return; // 원거리 로직 끝
       }
@@ -5678,14 +5955,14 @@ class MainScene extends Phaser.Scene {
         if (e.isDeepOne) {
           e.tick = (e.tick || Phaser.Math.Between(0, 100)) + 0.1;
           const wiggleAngle = angle + Math.sin(e.tick) * 0.45; // 좌우 흔들림
-          const speed = e.baseSpeed || 160;
+          const speed = (e.baseSpeed || 160) * slowMult;
           e.setVelocity(
             Math.cos(wiggleAngle) * speed,
             Math.sin(wiggleAngle) * speed
           );
         } else {
           // Act 1 성전사: 정직한 직선 추적
-          this.physics.moveToObject(e, this.player, GAME_CONFIG.ENEMY.SPEED);
+          this.physics.moveToObject(e, this.player, (e.baseSpeed || GAME_CONFIG.RANGED_ENEMY.SPEED) * slowMult);
         }
       }
     });
@@ -5702,7 +5979,7 @@ class MainScene extends Phaser.Scene {
       } else if (this.state.awakeningTier === 3) {
         suffix = ' [GODSLAYER]';
       }
-    } 
+    }
     // 다른 신격들은 기존 그리스 알파벳 유지
     else {
       if (this.state.awakeningTier === 1) suffix = '-α';
@@ -5716,8 +5993,7 @@ class MainScene extends Phaser.Scene {
     this.hudForm.setText(`FORM: ${this.state.form}${suffix}`);
 
     this.hudLv.setText(
-      `HP: ${Math.floor(this.state.hp)}/${this.state.maxHp} | SACRIFICES: ${
-        this.state.kills
+      `HP: ${Math.floor(this.state.hp)}/${this.state.maxHp} | SACRIFICES: ${this.state.kills
       }`
     );
     this.hudPacifist.setText(
@@ -5772,6 +6048,14 @@ class MainScene extends Phaser.Scene {
     this.boss.destroy();
     this.boss = null;
     this.projectiles.clear(true, true);
+    if (this.bossEyeParticles) {
+      this.bossEyeParticles.destroy();
+      this.bossEyeParticles = null;
+    }
+    if (this.bossEyeCore) {
+      this.bossEyeCore.destroy();
+      this.bossEyeCore = null;
+    }
 
     // 2. 보스 체력바 UI 숨기기 (다음 DLC 보스를 위해 초기화)
     this.bossHpBg.setVisible(false);
@@ -5786,7 +6070,7 @@ class MainScene extends Phaser.Scene {
     // ★ 그레이트 딥 원 처치 시: 포탈 생성 대신 Act 2 정복 배너 출력 & 스폰 재개(또는 엔딩)
     if (wasGreatDeepOne) {
       this.state.isBossSpawned = false;
-      this.state.maxHp += 50;
+      this.state.maxHp += 30;
       this.state.hp = this.state.maxHp;
       this.state.kills++;
       this.updateHUD();
@@ -5848,9 +6132,8 @@ class MainScene extends Phaser.Scene {
       this.physics.world.timeScale = 1.0;
     });
 
-    // 4. 승리 보상: 최대 체력 +30 확장 및 풀피 회복
-    this.state.maxHp += 30;
-    this.state.hp = this.state.maxHp;
+    // 4. 승리 보상: 최대 체력 +10 확장
+    this.state.maxHp += 10;
     this.updateHUD();
 
     // 5. DLC 페이즈 전환 상태 플래그
@@ -6460,8 +6743,8 @@ class MainScene extends Phaser.Scene {
 }
 
 
-  
-  
+
+
 
 new Phaser.Game({
   type: Phaser.AUTO,
