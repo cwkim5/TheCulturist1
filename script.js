@@ -412,7 +412,7 @@ class MainScene extends Phaser.Scene {
         this.startAct2Phase(px, py);
       },
       150: () => this.triggerWaveEscalation2(), // ★ 150킬: 공허의 침식 & 2막 적 강화!
-      160: () => this.spawnDualAct2Shrines(), // ★ 160킬: 베타(β) / 감마(γ) 대칭 제단 소환
+      160: () => this.evaluateTier2Evolution(), // ★ 160킬 자동 진화 판정!
       200: () => this.spawnGreatDeepOne(), // ★ 200킬: 그레이트 딥 원 강림!
     };
 
@@ -886,6 +886,7 @@ class MainScene extends Phaser.Scene {
       const isBeta = this.state.awakeningPath === 'BETA';
       const crushRadius = isBeta ? 115 : 95;
       const crushDmg = 65;
+      if (this.state.isAct2 && this.state.form === 'CTHULHU') this.state.gammaProgress++;
 
       const abyssMaw = this.add
         .circle(this.player.x, this.player.y, 20, 0x022c22, 0.75)
@@ -1646,6 +1647,7 @@ class MainScene extends Phaser.Scene {
       else if (this.state.comboStep === 3) {
         const isBeta = this.state.awakeningPath === 'BETA';
         currentCooldown = isBeta ? 360 : this.state.isExAwakened ? 560 : 680;
+        if (this.state.isAct2 && this.state.form === 'NODENS') this.state.gammaProgress++;
         // ★ 베타가 아니면 3단에서 콤보 종료(0), 베타면 4단 연계를 위해 유지!
         if (!isBeta) this.state.comboStep = 0;
 
@@ -1846,7 +1848,7 @@ class MainScene extends Phaser.Scene {
 
       // ★ 핵심: 25킬마다 탄환 1발씩 추가 (기본 1발 + 킬수/25), 알파 각성 시 +2발 보너스
       const bonusShots = Math.floor(this.state.kills / 25);
-      const totalShots = Math.min(1 + bonusShots + (this.state.isExAwakened ? 2 : 0), 7); // 최대 7발 제한
+      const totalShots = Math.min(1 + bonusShots + (this.state.isExAwakened ? 2 : 0), 5); // 최대 5발 제한
 
       if (!this.lastCthulhuSpitTime || now - this.lastCthulhuSpitTime >= cthulhuCd) {
         this.lastCthulhuSpitTime = now;
@@ -2086,45 +2088,31 @@ class MainScene extends Phaser.Scene {
 
         if (dist <= effectiveRange && diff <= effectiveArc) {
           const isCounter = enemy.isWindingUp;
+          // ★ 하스터 폼일 때는 평타도 적을 밀쳐내지 않고 제자리에 묶어둠!
+          const hitDir = this.state.form === 'HASTUR' ? null : angle;
 
-          // 일반 데미지 먼저 부여
           this.damageEnemy(
             enemy,
             GAME_CONFIG.PLAYER.DAGGER_DAMAGE,
-            angle,
+            hitDir,
             isCounter
           );
 
-          if (dist <= effectiveRange && diff <= effectiveArc) {
-            const isCounter = enemy.isWindingUp;
-            // ★ 하스터 폼일 때는 평타도 적을 밀쳐내지 않고 제자리에 묶어둠!
-            const hitDir = this.state.form === 'HASTUR' ? null : angle;
-
-            this.damageEnemy(
-              enemy,
-              GAME_CONFIG.PLAYER.DAGGER_DAMAGE,
-              hitDir,
-              isCounter
-            );
-
-            // ★ [하스터 전용] 평타 적중 시 감전 1스택 부여 + 80킬(-α) 이후 연쇄 번개 발동!
-            if (this.state.form === 'HASTUR' && enemy.active) {
-              this.addShockStack(enemy, 1);
-              if (this.state.isExAwakened) {
-                this.triggerHasturSlashChain(enemy);
-              }
-            }
-
-            // [기존 니알라토텝 전용 평타 처리]
-            if (this.state.form === 'NYARLATHOTEP' && enemy.active) {
-              this.addChaosMark(enemy, isNyarlaChaos ? 2 : 1);
-              if (isCounter) {
-                this.triggerNyarlaBlink(enemy, false);
-              }
+          // ★ [하스터 전용] 평타 적중 시 감전 1스택 부여 + 80킬(-α) 이후 연쇄 번개 발동!
+          if (this.state.form === 'HASTUR' && enemy.active) {
+            this.addShockStack(enemy, 1);
+            if (this.state.isExAwakened) {
+              this.triggerHasturSlashChain(enemy);
             }
           }
 
-
+          // ★ [니알라토텝 전용] 평타 적중 시 혼돈 낙인 부여 & 카운터 시 등 뒤 안전 도약
+          if (this.state.form === 'NYARLATHOTEP' && enemy.active) {
+            this.addChaosMark(enemy, isNyarlaChaos ? 2 : 1);
+            if (isCounter) {
+              this.triggerNyarlaBlink(enemy, false);
+            }
+          }
         }
       });
     }
@@ -2222,6 +2210,7 @@ class MainScene extends Phaser.Scene {
     }
 
     if (isCounterHit) {
+      if (this.state.isAct2 && this.state.form === 'THE FAITHLESS') this.state.gammaProgress++;
       finalDmg *=
         this.state.isTrueMortal && this.state.isExAwakened ? 4.2 : 3.0;
       enemy.isWindingUp = false;
@@ -2427,117 +2416,45 @@ class MainScene extends Phaser.Scene {
     }
   }
 
-  // ★ [160킬 이벤트] Act 2 심연의 눈 좌우 대칭 제단 (미니멀 룬 버전)
-  spawnDualAct2Shrines() {
+  // ★ [160킬 자동 진화 판정] 신격별 특수 조건 달성 시 감마(-γ), 미달 시 베타(-β) 진화
+  evaluateTier2Evolution() {
     if (this.state.awakeningTier >= 2) return;
 
-    const cx = 700;
-    const cy = 700;
-    const offsetX = 210;
+    const form = this.state.form;
+    const prog = this.state.gammaProgress || 0;
+    let isGammaUnlocked = false;
 
-    const FORM_COLORS = {
-      HASTUR: 0xfacc15,
-      NYARLATHOTEP: 0xa855f7,
-      CTHULHU: 0x10b981,
-      CTHUGHA: 0xf97316,
-      DAGON: 0x0ea5e9,
-      'THE FAITHLESS': 0xef4444,
-      NODENS: 0x38bdf8,
-      'MORTAL CULTIST': 0xe2e8f0,
-    };
-    const baseColor = FORM_COLORS[this.state.form] || 0xe2e8f0;
-
-    // 텍스트를 단 하나의 심볼(β / γ)로 극도로 절제
-    const dualConfigs = [
-      {
-        tierType: 'BETA',
-        x: cx - offsetX,
-        y: cy,
-        strokeColor: 0xe2e8f0,
-        coreColor: baseColor,
-        symbol: 'β',
-        symbolColor: '#e2e8f0',
-      },
-      {
-        tierType: 'GAMMA',
-        x: cx + offsetX,
-        y: cy,
-        strokeColor: 0xff003c,
-        coreColor: baseColor,
-        symbol: 'γ',
-        symbolColor: '#ff1e42',
-      },
-    ];
-
-    this.cameras.main.shake(400, 0.015);
-    this.cameras.main.flash(350, 16, 185, 129);
-
-    dualConfigs.forEach((cfg) => {
-      // 1) 제단 외곽 마법진
-      const shrine = this.add
-        .circle(cfg.x, cfg.y, 30, cfg.coreColor, 0.2)
-        .setStrokeStyle(3, cfg.strokeColor, 0.9)
-        .setDepth(5);
-
-      this.physics.add.existing(shrine, true);
-      shrine.tierType = cfg.tierType;
-
-      // 2) 내부 코어
-      const innerCore = this.add
-        .circle(
-          cfg.x,
-          cfg.y,
-          12,
-          cfg.tierType === 'GAMMA' ? 0xff003c : cfg.coreColor,
-          0.5
-        )
-        .setBlendMode(Phaser.BlendModes.ADD)
-        .setDepth(6);
-
-      // 3) 설명충 텍스트 대신 제단 중앙/상단에 떠오르는 고대 각인 심볼 1개
-      const runeSymbol = this.add
-        .text(cfg.x, cfg.y - 44, cfg.symbol, {
-          fontFamily: 'Georgia, serif',
-          fontSize: '26px',
-          color: cfg.symbolColor,
-          fontStyle: 'italic bold',
-          stroke: '#000000',
-          strokeThickness: 5,
-        })
-        .setOrigin(0.5)
-        .setDepth(15);
-
-      shrine.decorations = [innerCore, runeSymbol];
-      this.shrines.add(shrine);
-
-      // 제단 맥동
-      this.tweens.add({
-        targets: [shrine, innerCore],
-        scale: cfg.tierType === 'GAMMA' ? 1.22 : 1.1,
-        alpha: cfg.tierType === 'GAMMA' ? 0.7 : 0.4,
-        duration: cfg.tierType === 'GAMMA' ? 420 : 1000,
-        yoyo: true,
-        repeat: -1,
-        ease: 'Sine.easeInOut',
-      });
-
-      // 심볼이 위아래로 유령처럼 부유하는 연출
-      this.tweens.add({
-        targets: runeSymbol,
-        y: cfg.y - 50,
-        alpha: 0.65,
-        duration: 900,
-        yoyo: true,
-        repeat: -1,
-        ease: 'Sine.easeInOut',
-      });
-    });
-
-    if (this.hudGuide) {
-      this.hudGuide
-        .setText('⚖️ 심연의 눈 양 끝에 두 갈래의 제단(β / γ)이 솟아올랐습니다.')
-        .setColor('#6ee7b7');
+    // 신격별 고유 Tainted(감마) 해금 조건 판정
+    switch (form) {
+      case 'THE FAITHLESS':
+        // 체력 45% 이하의 혈투 중이거나 카운터 8회 이상 달성 시
+        isGammaUnlocked = this.state.hp <= this.state.maxHp * 0.45 || prog >= 8;
+        break;
+      case 'HASTUR':
+        isGammaUnlocked = prog >= 12; // 3중첩 마비 12회 이상
+        break;
+      case 'CTHUGHA':
+        isGammaUnlocked = prog >= 18; // 화염 링 폭발 18회 이상
+        break;
+      case 'CTHULHU':
+        isGammaUnlocked = prog >= 15; // 대시 피니셔 타격 15회 이상
+        break;
+      case 'NYARLATHOTEP':
+        isGammaUnlocked = prog >= 3; // 폭주(Chaos Mode) 3회 이상 진입
+        break;
+      case 'DAGON':
+        isGammaUnlocked = prog >= 15; // 2막 패링 성공 15회 이상
+        break;
+      case 'NODENS':
+        isGammaUnlocked = prog >= 12; // 3단 차원 검기 12회 이상 발동
+        break;
+      default:
+        // MORTAL CULTIST (불굴의 필멸자): 2막 진입 후 무피격 유지 시 감마 각성
+        isGammaUnlocked = (this.state.act2HitsTaken || 0) === 0;
+        break;
     }
+
+    this.triggerTier2Evolution(isGammaUnlocked ? 'GAMMA' : 'BETA');
   }
 
   // ★ [2막 제단 선택 완료] 베타(β) 또는 감마(γ) 스탯/배율 적용
@@ -2734,6 +2651,7 @@ class MainScene extends Phaser.Scene {
     if (enemy.shockStacks >= 3) {
       enemy.shockStacks = 0;
       enemy.isParalyzed = true;
+      if (this.state.isAct2 && this.state.form === 'HASTUR') this.state.gammaProgress++;
 
       // 일반 몹은 그 자리에서 즉시 정지 및 공격 전조 강제 캔슬!
       if (!enemy.isBoss && enemy.body) {
@@ -3294,7 +3212,10 @@ class MainScene extends Phaser.Scene {
 
   // ★ [크투가 2] 화상 상태인 적 추가 타격 시: 주변 화염 링 폭발 + 화상 전염!
   triggerCthughaRing(centerEnemy) {
+    if (this.state.isAct2 && this.state.form === 'CTHUGHA') this.state.gammaProgress++;
     if (!centerEnemy || !centerEnemy.active) return;
+    
+    
 
     // 연쇄 폭발 시 프레임 드랍 및 무한 루프 방지를 위한 0.12초 내부 쿨타임
     const now = this.time.now;
@@ -3816,6 +3737,7 @@ class MainScene extends Phaser.Scene {
   }
 
   registerParrySuccess() {
+    if (this.state.isAct2 && this.state.form === 'DAGON') this.state.gammaProgress++;
     this.state.successfulParries++;
     this.updateHUD();
 
@@ -4150,7 +4072,7 @@ class MainScene extends Phaser.Scene {
     }
   }
 
-  fireCthulhuTendril(angle) {
+  fireCthulhuTendril(angle, isBlackHole = false) {
     if (!this.player || !this.player.active) return;
 
     const isBeta = this.state.awakeningPath === 'BETA'; // ★ 베타 여부 확인
@@ -4172,6 +4094,7 @@ class MainScene extends Phaser.Scene {
 
     // ★ 투사체에 블랙홀 인력 여부 플래그 장착!
     proj.isBlackHole = isBlackHole;
+    if (proj.setData) proj.setData('isBlackHole', isBlackHole);
 
     // 첫 번째 블랙홀 탄은 시각적으로 살짝 더 크고 짙은 에메랄드 코어로 구별감 부여
     if (isBlackHole) {
@@ -4371,6 +4294,7 @@ class MainScene extends Phaser.Scene {
   }
 
   enterChaosMode() {
+    if (this.state.isAct2 && this.state.form === 'NYARLATHOTEP') this.state.gammaProgress++;
     this.state.isChaos = true;
     this.state.nyarlaCombo = 0;
     this.chaosEndTime = this.time.now + 4000; // 기본 4초간 광기 폭주
