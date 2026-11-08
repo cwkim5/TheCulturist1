@@ -2500,7 +2500,7 @@ class MainScene extends Phaser.Scene {
 
       this.hudGuide
         .setText(
-          `[β-각성 완료] 육체가 견고해지고 신격의 통제력이 상승합니다! (데미지 x${st.betaMult})`
+          `[β-각성] 신격의 통제력이 상승합니다! (데미지 x${st.betaMult})`
         )
         .setColor('#38bdf8');
     } else if (tierType === 'GAMMA') {
@@ -2625,7 +2625,7 @@ class MainScene extends Phaser.Scene {
     this.shrines.clear(true, true);
     this.hudGuide
       .setText(
-        '[각성: 하스터] 황색의 왕이 도래했습니다. (황금 번개 채찍 활성화)'
+        '[각성: 하스터] 황색의 왕이 도래했습니다. (번개 공격 및 감전 스탯 부여)'
       )
       .setColor('#facc15');
 
@@ -3130,7 +3130,7 @@ class MainScene extends Phaser.Scene {
     this.shrines.clear(true, true);
     this.hudGuide
       .setText(
-        '[각성: 크툴루] 르뤼에의 잠든 주인이 깨어납니다. (단검 베기 시 심해 촉수 3연발)'
+        '[각성: 크툴루] 르뤼에의 잠든 주인이 깨어납니다. (25킬마다 늘어나는 심해 구체를 소환)'
       )
       .setColor('#10b981');
 
@@ -3152,7 +3152,7 @@ class MainScene extends Phaser.Scene {
     this.shrines.clear(true, true);
     this.hudGuide
       .setText(
-        '[각성: 크투가] 살아있는 불꽃이 깨어납니다. (근접 광역 화염 방사)'
+        '[각성: 크투가] 살아있는 불꽃이 깨어납니다. (화염 디버프 공격)'
       )
       .setColor('#f97316');
 
