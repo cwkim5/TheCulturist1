@@ -412,7 +412,7 @@ class MainScene extends Phaser.Scene {
         this.startAct2Phase(px, py);
       },
       150: () => this.triggerWaveEscalation2(), // ★ 150킬: 공허의 침식 & 2막 적 강화!
-      160: () => this.evaluateTier2Evolution(), // ★ 160킬 자동 진화 판정!
+      160: () => this.triggerTier2Evolution('BETA'), // ★ 160킬: 제단 없이 즉시 베타(-β) 초월 각성!
       200: () => this.spawnGreatDeepOne(), // ★ 200킬: 그레이트 딥 원 강림!
     };
 
@@ -2469,16 +2469,21 @@ class MainScene extends Phaser.Scene {
     });
     this.shrines.clear(true, true);
 
-    // 2. 폼별 스탯 밸런싱 테이블 (베타 체력 보너스, 베타 배율, 감마 배율)
+    // ★ [1.0 최종 밸런싱] 160킬 베타(-β) 폼별 체력 및 최종 데미지 배율
     const TIER2_STATS = {
-      CTHULHU: { betaHp: 60, betaMult: 1.25, gammaMult: 1.85 },
-      DAGON: { betaHp: 55, betaMult: 1.25, gammaMult: 1.85 },
-      HASTUR: { betaHp: 45, betaMult: 1.3, gammaMult: 1.9 },
-      NODENS: { betaHp: 40, betaMult: 1.35, gammaMult: 2.0 },
-      NYARLATHOTEP: { betaHp: 40, betaMult: 1.35, gammaMult: 2.05 },
-      'THE FAITHLESS': { betaHp: 30, betaMult: 1.2, gammaMult: 1.75 },
-      'MORTAL CULTIST': { betaHp: 50, betaMult: 1.4, gammaMult: 2.2 },
-      CTHUGHA: { betaHp: 50, betaMult: 1.35, gammaMult: 2.0 },
+      // 1) 제단 3신 (안정적인 정통파)
+      CTHULHU: { betaHp: 50, betaMult: 1.25, gammaMult: 1.85 }, // 심해 중장갑 (총 MaxHP 180)
+      HASTUR: { betaHp: 35, betaMult: 1.3, gammaMult: 1.9 },    // 광역 CC 딜러 (총 MaxHP 155)
+      CTHUGHA: { betaHp: 40, betaMult: 1.3, gammaMult: 2.0 },   // 중거리 화염 지속딜러 (총 MaxHP 160)
+
+      // 2) 히든 신격 (고유 메커니즘 특화)
+      DAGON: { betaHp: 45, betaMult: 1.3, gammaMult: 1.85 },        // 반사 탱커 (총 MaxHP 170)
+      NODENS: { betaHp: 30, betaMult: 1.35, gammaMult: 2.0 },       // 4단 콤보 검성 (총 MaxHP 150)
+      NYARLATHOTEP: { betaHp: 30, betaMult: 1.35, gammaMult: 2.05 },// 폭주 암살자 (총 MaxHP 145)
+      'THE FAITHLESS': { betaHp: 25, betaMult: 1.2, gammaMult: 1.75 }, // 초고속 흡혈 광전사 (자체 1.15배 보유, 총 MaxHP 145)
+
+      // 3) 하드코어 순수 인간 (TRUE MORTAL 보상 극대화)
+      'MORTAL CULTIST': { betaHp: 40, betaMult: 1.5, gammaMult: 2.2 },
     };
 
     const st = TIER2_STATS[this.state.form] || TIER2_STATS['MORTAL CULTIST'];
@@ -5991,45 +5996,35 @@ class MainScene extends Phaser.Scene {
     this.cameras.main.shake(1000, 0.04);
     this.bloodEmitter.explode(140, bx, by);
 
-    // ★ 그레이트 딥 원 처치 시: 포탈 생성 대신 Act 2 정복 배너 출력 & 스폰 재개(또는 엔딩)
+    // ★ 200킬 최종 보스(그레이트 딥 원) 처치 시: 슬로우 모션 도파민 후 최종 엔딩 시퀀스 돌입!
     if (wasGreatDeepOne) {
       this.state.isBossSpawned = false;
-      this.state.maxHp += 30;
-      this.state.hp = this.state.maxHp;
       this.state.kills++;
       this.updateHUD();
 
-      const winBanner = this.add
-        .text(
-          this.cameras.main.centerX,
-          this.cameras.main.centerY - 60,
-          'THE GREAT DEEP ONE SLAIN\n[ 심해의 옛 지배자가 침묵합니다 ]',
-          {
-            fontFamily: 'Georgia, serif',
-            fontSize: '26px',
-            color: '#6ee7b7',
-            align: 'center',
-            fontStyle: 'bold',
-            stroke: '#000000',
-            strokeThickness: 6,
-          }
-        )
-        .setOrigin(0.5)
-        .setScrollFactor(0)
-        .setDepth(200);
+      // 처치 순간 1.2초간 극적인 슬로우 모션 및 에메랄드/보랏빛 이중 파동 방출
+      this.physics.world.timeScale = 3.5;
+      [0x10b981, 0xa855f7].forEach((col, idx) => {
+        const endRing = this.add
+          .circle(bx, by, 30, col, 0.45)
+          .setStrokeStyle(5 - idx, 0xffffff, 1)
+          .setBlendMode(Phaser.BlendModes.ADD)
+          .setDepth(190);
 
-      this.tweens.add({
-        targets: winBanner,
-        y: winBanner.y - 30,
-        alpha: 0,
-        delay: 2500,
-        duration: 1200,
-        onComplete: () => winBanner.destroy(),
+        this.tweens.add({
+          targets: endRing,
+          scale: 16 + idx * 5,
+          alpha: 0,
+          duration: 1100,
+          ease: 'Cubic.easeOut',
+          onComplete: () => endRing.destroy(),
+        });
       });
 
-      this.hudGuide
-        .setText('🏆 [ACT II CLEAR] 그레이트 딥 원을 토벌했습니다!')
-        .setColor('#fde047');
+      this.time.delayedCall(1200, () => {
+        this.physics.world.timeScale = 1.0;
+        this.triggerVictoryScreen();
+      });
       return;
     }
 
