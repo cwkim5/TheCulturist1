@@ -95,7 +95,7 @@ class PreloadScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     this.add
-      .text(width / 2, height / 2 + 50, '[ 클릭하여 의식 시작 ]', {
+      .text(width / 2, height / 2 + 50, '[ CLICK TO COMMENCE RITUAL ]', {
         fontFamily: 'monospace',
         fontSize: '15px',
         color: '#94a3b8',
@@ -1092,7 +1092,7 @@ class MainScene extends Phaser.Scene {
         .text(
           this.cameras.main.centerX,
           this.cameras.main.centerY - 50,
-          '신을 부정하는 자',
+          'THE FAITHLESS',
           {
             fontFamily: 'monospace',
             fontSize: '32px',
@@ -1242,12 +1242,12 @@ class MainScene extends Phaser.Scene {
           });
         });
 
-        // 묵직하고 간결한 영문/한글 선언 배너
+        // 묵직하고 간결한 영문 선언 배너
         const banner = this.add
           .text(
             this.cameras.main.centerX,
             this.cameras.main.centerY - 70,
-            'THE CRAWLING CHAOS\n[ 기어오는 혼돈 : 니알라토텝 ]',
+            'THE CRAWLING CHAOS\n[ Nyarlathotep ]',
             {
               fontFamily: 'Georgia, serif',
               fontSize: '26px',
@@ -1319,7 +1319,7 @@ class MainScene extends Phaser.Scene {
       .setOrigin(0, 0.5);
 
     this.bossName = this.add
-      .text(530, 18, '성벌군 대주교 (Grand Inquisitor)', {
+      .text(530, 18, 'Grand Inquisitor', {
         fontFamily: 'monospace',
         fontSize: '15px',
         color: '#f8fafc',
@@ -1334,7 +1334,7 @@ class MainScene extends Phaser.Scene {
       .text(
         20,
         565,
-        '[WASD] 이동 | [좌클릭] 단검 베기 (적 붉은 점멸 시 카운터!) | [우클릭] 패링 | [spacebar] 대쉬',
+        '[WASD] Move | [L-Click] Dagger Slash | [R-Click] Parry | [SPACE] Dash',
         { fontFamily: 'monospace', fontSize: '12px', color: '#64748b' }
       )
       .setScrollFactor(0)
@@ -1888,11 +1888,8 @@ class MainScene extends Phaser.Scene {
 
       // 3. [160킬 베타(-β): The Butcher] 피 장판 유무에 따른 공격 변화!
       if (isBeta) {
-        if (this.state.isMadness) {
-          return;
-          // 장판 밟음(광기 폭주): 피의 부메랑 투척!
-          this.fireBloodBoomerang(angle);
-        } else {
+        if (this.state.awakeningTier >= 2) {
+
           // 장판 없음(기본): 전방을 휩쓰는 거대한 피의 검기(혈사파) 발사!
           const bloodWave = this.add.ellipse(slashX, slashY, 130, 15, 0xdc2626, 0.9)
             .setRotation(angle + Math.PI / 2).setBlendMode(Phaser.BlendModes.ADD).setDepth(14);
@@ -2307,10 +2304,6 @@ class MainScene extends Phaser.Scene {
       this.spawnBurningSoul(enemy.x, enemy.y);
     }
 
-    // ★ [무신앙자-β (The Butcher)] 적 처치 시 8초간 유지되는 피 장판 생성
-    if (this.state.form === 'THE FAITHLESS' && this.state.awakeningPath === 'BETA') {
-      this.spawnBloodPool(enemy.x, enemy.y);
-    }
 
     this.bloodDecalGfx.fillStyle(0x450a0a, 0.75).fillCircle(enemy.x, enemy.y, Phaser.Math.Between(10, 22));
 
@@ -2411,7 +2404,7 @@ class MainScene extends Phaser.Scene {
 
     if (this.hudGuide) {
       this.hudGuide
-        .setText('마법진에 형성된 세 개의 제단이 당신을 이끕니다.')
+        .setText('Three altars have risen upon the ritual circle, guiding your path.')
         .setColor('#facc15');
     }
   }
@@ -2505,7 +2498,7 @@ class MainScene extends Phaser.Scene {
 
       this.hudGuide
         .setText(
-          `[β-각성] 신격의 통제력이 상승합니다! (데미지 x${st.betaMult})`
+          `[Beta Awakening] Divine control increases! (DAMAGE x${st.betaMult})`
         )
         .setColor('#38bdf8');
     } else if (tierType === 'GAMMA') {
@@ -2527,7 +2520,7 @@ class MainScene extends Phaser.Scene {
 
     if (this.state.form === 'THE FAITHLESS') {
       if (tierType === 'BETA') {
-        this.hudGuide.setText(`★ [The Butcher] 피의 검기가 빗발칩니다! 흡혈귀처럼 적을 도륙하십시오. (데미지 x${st.betaMult})`).setColor('#ef4444');
+        this.hudGuide.setText(`[The Butcher] Blood-slashes rage! Harvest your foes like a vampire. (DAMAGE x${st.betaMult})`).setColor('#ef4444');
       } else {
         this.hudGuide.setText(`⚠️ [The Judgement] 이단 심문관들을 직접 단죄합니다! 공격 속도가 한계를 돌파합니다. (데미지 x${st.gammaMult})`).setColor('#f43f5e');
       }
@@ -2630,7 +2623,7 @@ class MainScene extends Phaser.Scene {
     this.shrines.clear(true, true);
     this.hudGuide
       .setText(
-        '[각성: 하스터] 황색의 왕이 도래했습니다. (번개 공격 및 감전 스탯 부여)'
+        '[Awakening: Hastur] The King in Yellow has arrived. (Grants lightning strikes and shock status)'
       )
       .setColor('#facc15');
 
@@ -2759,7 +2752,7 @@ class MainScene extends Phaser.Scene {
     this.shrines.clear(true, true);
     this.hudGuide
       .setText(
-        '[각성: 니알라토텝] 기어오는 혼돈과 하나가 되었습니다. (5연속 처치 시 폭주)'
+        '[Awakening: Nyarlathotep] One with the Crawling Chaos. (Rampage at 5 consecutive kills)'
       )
       .setColor('#a855f7');
 
@@ -3135,7 +3128,7 @@ class MainScene extends Phaser.Scene {
     this.shrines.clear(true, true);
     this.hudGuide
       .setText(
-        '[각성: 크툴루] 르뤼에의 잠든 주인이 깨어납니다. (25킬마다 늘어나는 심해 구체를 소환)'
+        '[Awakening: Cthulhu] The sleeping master of R\'lyeh awakens. (Summons abyss orbs that multiply every 25 kills)'
       )
       .setColor('#10b981');
 
@@ -3157,7 +3150,7 @@ class MainScene extends Phaser.Scene {
     this.shrines.clear(true, true);
     this.hudGuide
       .setText(
-        '[각성: 크투가] 살아있는 불꽃이 깨어납니다. (화염 디버프 공격)'
+        '[Awakening: Cthugha] The Living Flame awakens. (Applies burn debuffs)'
       )
       .setColor('#f97316');
 
@@ -3495,7 +3488,7 @@ class MainScene extends Phaser.Scene {
 
     this.hudGuide
       .setText(
-        '★ [히든 각성: 다곤] 불살의 방벽. 모든 클릭이 반사(Deflect)로 변합니다.'
+        '★ [Hidden Awakening: Dagon] Barrier of Non-Violence. Every click becomes a Deflect.'
       )
       .setColor('#0ea5e9');
 
@@ -3536,7 +3529,7 @@ class MainScene extends Phaser.Scene {
     this.state.canSlash = true;
     this.hudGuide
       .setText(
-        '★ [엘더 갓: 노덴스 강림] 심연의 사냥꾼. 3단 공간 절단 콤보가 해금됩니다.'
+        '★ [Elder God: Nodens] Hunter of the Abyss. Unlocks the triple-stage spatial slash combo.'
       )
       .setColor('#38bdf8');
 
@@ -3562,7 +3555,7 @@ class MainScene extends Phaser.Scene {
 
     this.hudGuide
       .setText(
-        '★ [무신앙자 각성] 순수한 살육. 검이 붉게 물들고 대시 시 적을 찢어발깁니다.'
+        '★ [The Faithless Awakening] Pure carnage. Your blade turns crimson, and dashing rips enemies apart.'
       )
       .setColor('#f87171');
 
@@ -3570,106 +3563,6 @@ class MainScene extends Phaser.Scene {
     this.updateHUD();
   }
 
-  spawnBloodPool(x, y) {
-    return; // ★ [밸런스 패치] 피 장판 생성 임시 비활성화
-    if (!this.bloodPools) this.bloodPools = [];
-
-    // 바닥에 깔리는 선혈 장판
-    const pool = this.add.circle(x, y, 35, 0x991b1b, 0.45)
-      .setStrokeStyle(3, 0xdc2626, 0.7)
-      .setDepth(3);
-
-    // 숨쉬듯 꿀렁거리는 연출
-    this.tweens.add({
-      targets: pool,
-      scale: 1.15,
-      alpha: 0.25,
-      duration: 800,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut'
-    });
-
-    this.bloodPools.push(pool);
-
-    // 8초 뒤 서서히 굳으며 소멸
-    this.time.delayedCall(8000, () => {
-      this.tweens.add({
-        targets: pool,
-        alpha: 0,
-        duration: 800,
-        onComplete: () => {
-          this.bloodPools = this.bloodPools.filter(p => p !== pool);
-          pool.destroy();
-        }
-      });
-    });
-  }
-
-  fireBloodBoomerang(angle) {
-    return; // ★ [밸런스 패치] 피의 부메랑 투척 임시 비활성화
-    this.cameras.main.shake(120, 0.012);
-
-    const bx = this.player.x;
-    const by = this.player.y;
-    const dist = 320; // 부메랑 비행 거리
-    const tx = bx + Math.cos(angle) * dist;
-    const ty = by + Math.sin(angle) * dist;
-
-    // 부메랑(초승달) 그래픽 그리기
-    const bGfx = this.add.graphics();
-    bGfx.fillStyle(0xdc2626, 0.95);
-    bGfx.lineStyle(2, 0xffa5a5, 1);
-    bGfx.beginPath();
-    bGfx.arc(0, 0, 24, -Math.PI / 1.5, Math.PI / 1.5, false); // 바깥쪽 둥근 날
-    bGfx.arc(0, 0, 12, Math.PI / 1.5, -Math.PI / 1.5, true);  // 안쪽 파인 날
-    bGfx.closePath();
-    bGfx.fillPath();
-    bGfx.strokePath();
-
-    const boomerang = this.add.container(bx, by, [bGfx]).setDepth(15);
-
-    // 미친듯이 회전하는 애니메이션
-    this.tweens.add({
-      targets: boomerang,
-      rotation: Math.PI * 16,
-      duration: 900
-    });
-
-    // 날아갔다가 되돌아오는 (yoyo) 트윈
-    this.tweens.add({
-      targets: boomerang,
-      x: tx,
-      y: ty,
-      duration: 450,
-      ease: 'Quad.easeOut',
-      yoyo: true, // 되돌아옴!
-      onUpdate: () => {
-        // 부메랑 잔상 파티클
-        const trail = this.add.circle(boomerang.x, boomerang.y, 14, 0xb91c1c, 0.6).setBlendMode(Phaser.BlendModes.ADD).setDepth(14);
-        this.tweens.add({ targets: trail, scale: 0.1, alpha: 0, duration: 180, onComplete: () => trail.destroy() });
-
-        // 실시간 다단 히트 판정 (0.12초 간격으로 갈아버림)
-        this.enemies.getChildren().forEach(e => {
-          if (e.active && Phaser.Math.Distance.Between(boomerang.x, boomerang.y, e.x, e.y) < 40 + (e.isBoss ? 24 : 0)) {
-            if (!e.lastBoomerangHit || this.time.now - e.lastBoomerangHit > 120) {
-              e.lastBoomerangHit = this.time.now;
-
-              // 넉백 없이(null) 제자리에서 믹서기처럼 다단히트 (데미지: 38)
-              this.damageEnemy(e, 38, null, false);
-
-              // 부메랑 흡혈(타격당 3% 확률로 1 회복)
-              if (Math.random() < 0.03 && this.state.hp < this.state.maxHp) {
-                this.state.hp = Math.min(this.state.maxHp, this.state.hp + 1);
-                this.updateHUD();
-              }
-            }
-          }
-        });
-      },
-      onComplete: () => boomerang.destroy()
-    });
-  }
 
   // ★ [히든 하드코어 분기] 신도, 광기도 거부한 순수한 인간 (TRUE MORTAL)
   awakenTrueMortal() {
@@ -3767,7 +3660,7 @@ class MainScene extends Phaser.Scene {
     for (let i = 0; i < 2; i++) this.spawnCrusader();
 
     this.hudGuide
-      .setText('⚠️ [성벌군 증원] 성전사들의 추격이 조금씩 거세집니다.')
+      .setText('⚠️ [Inquisition Reinforcements] Crusader pressure intensifies...')
       .setColor('#f43f5e');
   }
 
@@ -3886,7 +3779,7 @@ class MainScene extends Phaser.Scene {
     this.spawnVoidCaller();
 
     this.hudGuide
-      .setText('🟣 [공허의 침식] 심해가 보랏빛 공허에 잠식됩니다! 적들이 광폭화합니다!')
+      .setText('🟣 [Void Erosion] The abyss turns purple. Enemies berserk!')
       .setColor('#d8b4f8');
   }
 
@@ -3923,20 +3816,20 @@ class MainScene extends Phaser.Scene {
 
     const ALPHA_TEXTS = {
       HASTUR:
-        '[α: 하스터] 황금 채찍이 주변 적들에게 연쇄 번개(Chain)로 전이됩니다!',
+        '[α: Hastur] The golden whip discharges chain lightning across nearby foes!',
       CTHULHU:
-        '[α: 크툴루] 심해 촉수가 5연발로 증가하고 재사용 대기시간이 감소합니다!',
+        '[α: Cthulhu] Abyssal tendrils increase to 5 rapid strikes, and cooldown is reduced!',
       CTHUGHA:
-        '★ [크투가-α 각성] 베기마다 타오르는 화염 장판이 생성되어 적들을 지속적으로 불태웁니다!',
+        '[α: Cthugha]Every slash manifests searing fire zones to scorch enemies!',
       DAGON:
-        '[α: 다곤] 패링 해일이 2연속 메아리치며, 반사 탄환이 3갈래로 분열됩니다!',
+        '[α: Dagon] Parry tidal waves echo twice, and deflected bolts split into 3 shards!',
       NYARLATHOTEP:
-        '[α: 니알라토텝] 순간이동 시 공허 폭발이 일며 4킬마다 폭주합니다!',
-      NODENS: '[α: 노덴스] 3단 콤보의 차원 검기가 3갈래 폭풍으로 확장됩니다!',
+        '[α: Nyarlathotep] Teleporting triggers a void blast, driving you into a rampage every 4 kills!',
+      NODENS: '[α: Nodens] The triple-stage spatial slash expands into a triple-wave dimensional storm!',
       'THE FAITHLESS':
-        '[The Murder] 살의가 형태를 갖춥니다. 참격이 십자(X) 형태로 교차하며 전방을 도륙합니다!',
+        '[The Murder] Bloodlust takes form. Slashes cross in an X-shape to slaughter all before you!',
       'MORTAL CULTIST':
-        '[α: 필멸의 극의] 단검의 공격 속도와 치명타 위력이 한계를 돌파합니다!',
+        '[α: Apex Mortal] Dagger attack speed and critical power break their mortal limits!',
     };
 
     this.hudGuide
@@ -4823,7 +4716,7 @@ class MainScene extends Phaser.Scene {
     this.bossHpBar.width = 420;
     this.bossHpBar.setFillStyle(0x10b981);
     this.bossName
-      .setText('심해의 옛 지배자: THE GREAT DEEP ONE')
+      .setText('THE GREAT DEEP ONE')
       .setColor('#6ee7b7')
       .setVisible(true);
 
@@ -4888,7 +4781,7 @@ class MainScene extends Phaser.Scene {
     });
 
     this.hudGuide
-      .setText('🌊 [THE GREAT DEEP ONE] 심해의 정점이 모습을 드러냈습니다! (넉백 면역 / 피해감소 30%)')
+      .setText('🌊 [THE GREAT DEEP ONE HAS AWAKENED!]')
       .setColor('#34d399');
   }
 
@@ -4983,7 +4876,7 @@ class MainScene extends Phaser.Scene {
     this.cameras.main.shake(1000, 0.04);
 
     this.bossName
-      .setText('★ 심연의 포식자: THE GREAT DEEP ONE (PHASE 2) ★')
+      .setText('★ THE GREAT DEEP ONE (PHASE 2) ★')
       .setColor('#e879f9');
     this.bossHpBar.setFillStyle(0xa855f7);
 
@@ -5032,7 +4925,7 @@ class MainScene extends Phaser.Scene {
       .setDepth(13);
 
     this.hudGuide
-      .setText('⚠️ [PHASE 2] 고대 투구 너머로 심연의 안광이 타오릅니다!')
+      .setText('⚠️ [PHASE 2] Abyssal eyes flare from beneath the ancient helm!')
       .setColor('#e879f9');
 
     this.time.delayedCall(900, () => {
@@ -6077,7 +5970,7 @@ class MainScene extends Phaser.Scene {
       .text(
         this.cameras.main.centerX,
         this.cameras.main.centerY - 70,
-        '대주교가 쓰러졌습니다.\n그러나 성소의 봉인이 깨지며 심연이 열립니다...',
+        'The Grand Inquisitor has fallen.\nYet the sanctuary seal shatters, and the abyss opens...',
         {
           fontFamily: 'Georgia, serif',
           fontSize: '22px',
@@ -6124,7 +6017,7 @@ class MainScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(250);
     this.add
-      .text(width / 2, height / 2 - 20, '의식 실패\n( RITUAL FAILED )', {
+      .text(width / 2, height / 2 - 20, 'RITUAL FAILED', {
         fontFamily: 'Georgia, serif',
         fontSize: '32px',
         color: '#ff1e42',
@@ -6137,13 +6030,13 @@ class MainScene extends Phaser.Scene {
 
     if (this.state.kills >= 50) {
       const LORE_TIPS = [
-        '피를 묻히지 않은 칼날이 허공을 수없이 가를 때, 심연의 사냥꾼이 깨어난다',
-        '검을 휘두르지 않고 온전히 공격을 받아내면 심해의 군주가 응답할 것이다',
-        '당신이 신을 섬기지 않는다면 끔찍한 운명을 맞이할 것이다..',
-        '상처 없이 완벽한 동작으로 그들을 멸하여 진정한 모습으로 거듭나라',
-        '적이 붉게 빛나는 순간 기습하여 그들의 허를 찔러라',
-        'Ph nglui mglw nafh Cthulhu R lyeh wgah nagl fhtagn.',
-        '인간이 느끼는 가장 강력하고 오래된 감정은 공포이다.\n또한 인간이 느끼는 가장 강력하고 오래된 공포는, 미지의 것에 대한 공포이다.\n-H.P.러브크래프트',
+        '"When a bloodless blade cleaves the air endlessly, the abyssal hunter awakens."',
+        '"Endure incoming strikes without swinging your blade, and the deep lord shall reply."',
+        '"Deny the service of the gods, and meet a terrible fate.."',
+        '"Vanquish them flawlessly without a scratch to ascend into your true form."',
+        '"Ambush foes the instant they flash red, striking their vulnerable guard."',
+        '"Ph nglui mglw nafh Cthulhu R lyeh wgah nagl fhtagn."',
+        '"The oldest and strongest emotion of mankind is fear, and the deepest fear is the unknown of the dark."',
       ];
 
       const randomTip = Phaser.Utils.Array.GetRandom(LORE_TIPS);
@@ -6427,7 +6320,7 @@ class MainScene extends Phaser.Scene {
       .text(
         this.cameras.main.centerX,
         this.cameras.main.centerY - 50,
-        'ACT II : 가라앉은 고대 도시\n[ SUNKEN R’LYEH ]',
+        'ACT II : The Sunken Ancient City\nSUNKEN R’LYEH',
         {
           fontFamily: 'Georgia, serif',
           fontSize: '26px',
@@ -6453,7 +6346,7 @@ class MainScene extends Phaser.Scene {
 
     this.hudGuide
       .setText(
-        '🌌 [ACT II] 의식의 방을 벗어나 고대 신들의 영역에 발을 들였습니다.'
+        '🌌 [ACT II] You have left the Chamber of Ritual and stepped into the domain of the Elder Gods.'
       )
       .setColor('#6ee7b7');
   }
@@ -6682,7 +6575,3 @@ new Phaser.Game({
   physics: { default: 'arcade', arcade: { debug: false } },
   scene: [PreloadScene, MainScene],
 });
-
-// =========================================================================
-// [DLC 확장 진입점] 대주교가 죽은 자리(bx, by)에서 시작되는 신규 이벤트
-// =========================================================================
