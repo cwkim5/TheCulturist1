@@ -407,8 +407,8 @@ class MainScene extends Phaser.Scene {
       100: () => this.spawnBoss(), // 100킬: 대주교 강림
       101: () => {
         // 보스가 쓰러진 마지막 좌표를 가져오거나, 없으면 맵 중앙(700, 700)에 포탈 생성!
-        const px = this.lastBossPos ? this.lastBossPos.x : 700;
-        const py = this.lastBossPos ? this.lastBossPos.y : 700;
+        const px = 700;
+        const py = 700;
         this.startAct2Phase(px, py);
       },
       150: () => this.triggerWaveEscalation2(), // ★ 150킬: 공허의 침식 & 2막 적 강화!
@@ -1472,10 +1472,22 @@ class MainScene extends Phaser.Scene {
     if (!this.player.isLunging) {
       let vx = 0,
         vy = 0;
-      const spd =
-        this.state.form === 'THE FAITHLESS'
-          ? GAME_CONFIG.PLAYER.SPEED * 1.35
-          : GAME_CONFIG.PLAYER.SPEED;
+      // 1. 폼별 이동 속도 배율 사전(Dictionary) 정의
+  const speedMultipliers = {
+    'THE FAITHLESS': 1.35,  // 무신앙자는 가장 빠른 1.35배
+    'NYARLATHOTEP': 1.25,   // 예: 기동성이 중요한 폼은 1.25배
+    'HASTUR': 1.15,         // 예: 밸런스형 폼은 1.15배
+    'DAGON': 1.10,          // 예: 묵직한 폼도 최소 1.1배 상승
+    'CTHUGHA': 1.15,
+    // ... 추가되는 폼 이름과 배율을 여기에 계속 적어주면 됩니다.
+  };
+
+  // 2. 현재 폼에 해당하는 배율을 찾고, 목록에 없으면 기본 폼으로 간주해 1.0배 적용
+  // 만약 진화 전 폼 이름이 'MORTAL'이나 'NORMAL'이라면 1.0이 들어갑니다.
+  const multiplier = speedMultipliers[this.state.form] || 1.0; 
+  
+  const spd = GAME_CONFIG.PLAYER.SPEED * multiplier;
+  
       if (this.keys.A.isDown) vx = -spd;
       else if (this.keys.D.isDown) vx = spd;
       if (this.keys.W.isDown) vy = -spd;
@@ -2268,9 +2280,30 @@ class MainScene extends Phaser.Scene {
 
   triggerCounterDopamine(x, y) {
     this.physics.world.isPaused = true;
-    this.cameras.main.shake(160, 0.018);
-    this.cameras.main.flash(90, 255, 255, 255);
-    //this.subliminalText.setAlpha(0.85);
+    this.cameras.main.shake(100, 0.01);
+    const cam = this.cameras.main;
+    // 0x3a0000: 묵직한 검붉은색 (원하는 피 색깔 헥사코드로 변경 가능)
+    const bloodFlash = this.add.rectangle(cam.centerX, cam.centerY, cam.width, cam.height, 0xffffff);
+    
+    bloodFlash.setScrollFactor(0); // 플레이어가 이동해도 화면에 고정되도록 설정
+    bloodFlash.setDepth(9999);     // 다른 모든 오브젝트 위에 덮기
+    bloodFlash.alpha = 0.5;        // 핵심: 초기 투명도를 40%로 제한해서 암전 느낌 방지 (조절 가능)
+
+    // 플래시가 서서히 사라지는 연출 (Tween)
+    this.tweens.add({
+        targets: bloodFlash,
+        alpha: 0,
+        duration: 120, // 0.12초 만에 스르륵 빠짐
+        ease: 'Quad.easeOut',
+        onComplete: () => bloodFlash.destroy() // 연출 끝나면 찌꺼기 없이 삭제
+    });
+    
+    // 3. 역경직 해제
+    this.time.delayedCall(80, () => {
+        this.physics.world.isPaused = false;
+    });
+   
+    
 
     if (this.state.form === 'HASTUR') {
       const spike = this.add
@@ -4660,7 +4693,7 @@ class MainScene extends Phaser.Scene {
 
     // 2. UI 이름 및 체력바 색상 변경
     this.bossName
-      .setText('★ 광신도 처단자: 타락한 대주교 (PHASE 2) ★')
+      .setText('★ The Grand Cultist Slayer (PHASE 2) ★')
       .setColor('#fde047');
     this.bossHpBar.setFillStyle(0xdc2626);
 
@@ -6094,6 +6127,8 @@ class MainScene extends Phaser.Scene {
     if (this.inquisitorTimer) this.inquisitorTimer.remove();
     if (this.projectiles) this.projectiles.clear(true, true);
     if (this.enemies) this.enemies.clear(true, true);
+    if (this.bloodOrbs) this.bloodOrbs.clear(true, true);
+    
 
     this.cameras.main.flash(600, 168, 85, 247);
     this.cameras.main.shake(500, 0.015);
