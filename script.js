@@ -45,6 +45,7 @@ class PreloadScene extends Phaser.Scene {
   create() {
     const { width, height } = this.scale;
     this.createProceduralTextures();
+    
 
     const quote = this.add
       .text(width / 2, height / 2, '“Fear is the greatest motivation.”', {
@@ -627,15 +628,8 @@ class MainScene extends Phaser.Scene {
 
     this.keys = this.input.keyboard.addKeys('W,A,S,D');
     //this.input.on('pointerdown', (p) => p.rightButtonDown() ? this.performParry() : this.performDaggerSlash() );
-    this.setupMobileControls(); // ★ 모바일 가상 패드 초기화 메서드 호출
-
+    
     this.input.on('pointerdown', (p) => {
-      if (this.isMobile) {
-        const isJoyArea = p.x < 300 && p.y > 350;
-        const isBtnArea = p.x > 500 && p.y > 300;
-        if (isJoyArea || isBtnArea) return;
-      }
-
       if (p.rightButtonDown() || this.state.form === 'DAGON') {
         this.performParry();
       } else {
@@ -680,10 +674,6 @@ class MainScene extends Phaser.Scene {
     if (this.keys.S.isDown) vy += 1;
     if (this.keys.A.isDown) vx -= 1;
     if (this.keys.D.isDown) vx += 1;
-    if (this.joyData && this.joyData.active && (this.joyData.vx !== 0 || this.joyData.vy !== 0)) {
-      vx = this.joyData.vx;
-      vy = this.joyData.vy;
-    }
 
     let dashAngle;
     if (vx === 0 && vy === 0) {
@@ -1390,7 +1380,7 @@ class MainScene extends Phaser.Scene {
 
         this.hudGuide
           .setText(
-            '[각성: 니알라토텝] 기어오는 혼돈과 하나가 되었습니다.(5연속 처치 시 폭주)'
+            '[Awakening: Nyarlathotep] One with the Crawling Chaos. (Rampage at 5 consecutive kills)'
           )
           .setColor('#a855f7');
         this.updateHUD();
@@ -1495,11 +1485,6 @@ class MainScene extends Phaser.Scene {
       if (vx !== 0 && vy !== 0) {
         vx *= 0.7071;
         vy *= 0.7071;
-      }
-      // ★ 2. 모바일 조이스틱이 활성화된 경우 조이스틱 속도 우선 적용
-      if (this.joyData && this.joyData.active) {
-        vx = this.joyData.vx * spd;
-        vy = this.joyData.vy * spd;
       }
 
       this.player.setVelocity(vx, vy);
@@ -3631,7 +3616,7 @@ class MainScene extends Phaser.Scene {
       .text(
         this.cameras.main.centerX,
         this.cameras.main.centerY - 60,
-        '“신도, 광기도 필요 없다.”\n[ TRUE ORIGINAL : 불굴의 필멸자 ]',
+        '“Neither gods nor madness are needed.”\n[ TRUE ORIGINAL : The Indomitable Mortal ]',
         {
           fontFamily: 'Georgia, serif',
           fontSize: '24px',
@@ -3660,7 +3645,7 @@ class MainScene extends Phaser.Scene {
 
     this.hudGuide
       .setText(
-        '★ [HARDCORE TRUE ROUTE] 모든 변이를 거부했습니다. 오직 단검과 패링만으로 끝을 보십시오.'
+        '★ [HARDCORE TRUE ROUTE] All mutations rejected. Survive with only your dagger and parry.'
       )
       .setColor('#e2e8f0');
 
@@ -4250,7 +4235,7 @@ class MainScene extends Phaser.Scene {
 
     this.hudGuide
       .setText(
-        '★ [기어오는 혼돈 폭주] 공격 속도와 사거리가 폭증하며, 모든 베기가 2중첩의 혼돈 낙인을 새깁니다!'
+        '★ [Chaos Rampage] Attack speed and range massively increased! Every slash inflicts 2 Chaos marks.'
       )
       .setColor('#c084fc');
     this.updateHUD();
@@ -6031,7 +6016,7 @@ class MainScene extends Phaser.Scene {
 
     this.hudGuide
       .setText(
-        '★ [ACT II 개막] 성소의 결계가 무너졌습니다. 더 깊은 광기가 몰려옵니다.'
+        '[ACT II Begins] The sanctuary seal is broken. A deeper madness approaches.'
       )
       .setColor('#ef4444');
   }
@@ -6091,7 +6076,7 @@ class MainScene extends Phaser.Scene {
       .text(
         width / 2,
         height / 2 + 50,
-        '- [R] 키 또는 클릭하여 처음부터 다시 시작 -',
+        '- Press [R] or Click to Restart -',
         {
           fontFamily: 'monospace',
           fontSize: '14px',
@@ -6180,7 +6165,7 @@ class MainScene extends Phaser.Scene {
 
     // 포탈 위 안내 텍스트
     const portalLabel = this.add
-      .text(bx, by - 62, '[ 심연의 문 ]', {
+      .text(bx, by - 62, '[ Abyssal Gate ]', {
         fontFamily: 'monospace',
         fontSize: '12px',
         color: '#a7f3d0',
@@ -6193,7 +6178,7 @@ class MainScene extends Phaser.Scene {
 
     this.hudGuide
       .setText(
-        '🌀 대주교의 유해 위로 차원문이 열렸습니다. 포탈로 걸어가 심연으로 진입하십시오.'
+        '🌀 A dimensional rift has opened. Step into the portal to enter the Abyss.'
       )
       .setColor('#34d399');
 
@@ -6385,212 +6370,28 @@ class MainScene extends Phaser.Scene {
       )
       .setColor('#6ee7b7');
   }
-
-  setupMobileControls() {
-    // ★ 1. 순수 모바일/태블릿 OS일 때만 모바일 모드로 확정
-    const os = this.sys.game.device.os;
-    this.isMobile = os.android || os.iOS || os.iPad || os.iPhone || os.windowsPhone;
-
-    this.joyData = {
-      active: false,
-      pointerId: null,
-      vx: 0,
-      vy: 0,
-      angle: 0,
-    };
-    this.lastAimAngle = 0;
-
-    // 데스크톱(Mac, Windows, Linux) 환경이면 가상 UI를 아예 생성하지 않고 종료
-    if (!this.isMobile) return;
-
-    // 모바일용 하단 가이드 텍스트 변경
-    if (this.hudGuide) {
-      this.hudGuide.setText(
-        '[좌측 패드] 이동 | [ 우측 버튼] 베기 / 패링 / 대시 (가장 가까운 적 자동 조준)'
-      );
-    }
-
-    const joyX = 115;
-    const joyY = 475;
-    const joyRadius = 52;
-
-    // 2. 좌측 가상 조이스틱 UI
-    this.joyBase = this.add
-      .circle(joyX, joyY, joyRadius, 0x0f172a, 0.45)
-      .setStrokeStyle(2.5, 0x64748b, 0.7)
-      .setScrollFactor(0)
-      .setDepth(210);
-
-    this.joyThumb = this.add
-      .circle(joyX, joyY, 24, 0xe2e8f0, 0.65)
-      .setScrollFactor(0)
-      .setDepth(211);
-
-    // 화면 좌측 절반(x < 400) 터치 시 조이스틱 활성화
-    this.input.on('pointerdown', (p) => {
-      if (p.x < 400 && !this.joyData.active) {
-        this.joyData.active = true;
-        this.joyData.pointerId = p.id;
-        this.updateJoystick(p);
-      }
-    });
-
-    this.input.on('pointermove', (p) => {
-      if (this.joyData.active && p.id === this.joyData.pointerId) {
-        this.updateJoystick(p);
-      }
-    });
-
-    const releaseJoystick = (p) => {
-      if (this.joyData.active && p.id === this.joyData.pointerId) {
-        this.joyData.active = false;
-        this.joyData.pointerId = null;
-        this.joyData.vx = 0;
-        this.joyData.vy = 0;
-        this.joyThumb.setPosition(joyX, joyY);
-      }
-    };
-    this.input.on('pointerup', releaseJoystick);
-    this.input.on('pointerupoutside', releaseJoystick);
-
-    // 3. 우측 액션 버튼 3종 생성 헬퍼 (베기 / 패링 / 대시)
-    const createTouchBtn = (bx, by, radius, color, label, callback) => {
-      const btn = this.add
-        .circle(bx, by, radius, color, 0.35)
-        .setStrokeStyle(3, color, 0.9)
-        .setScrollFactor(0)
-        .setDepth(210)
-        .setInteractive();
-
-      const txt = this.add
-        .text(bx, by, label, {
-          fontFamily: 'monospace',
-          fontSize: radius > 35 ? '15px' : '12px',
-          color: '#ffffff',
-          fontStyle: 'bold',
-        })
-        .setOrigin(0.5)
-        .setScrollFactor(0)
-        .setDepth(211);
-
-      btn.on('pointerdown', () => {
-        if (this.state.isGameOver || this.state.isPaused) return;
-        btn.setScale(0.88).setAlpha(0.8);
-        callback();
-      });
-      btn.on('pointerup', () => btn.setScale(1.0).setAlpha(1.0));
-      btn.on('pointerout', () => btn.setScale(1.0).setAlpha(1.0));
-
-      return { btn, txt };
-    };
-
-    // 우측 하단 아케이드식 삼각 배치
-    // 1) 메인 단검 베기 (우측 하단 대형 버튼)
-    createTouchBtn(695, 490, 44, 0xef4444, 'SLASH', () => {
-      if (this.state.form === 'DAGON') this.performParry();
-      else this.performDaggerSlash();
-    });
-
-    // 2) 패링 (베기 버튼 좌측)
-    createTouchBtn(590, 515, 34, 0x38bdf8, 'PARRY', () => {
-      this.performParry();
-    });
-
-    // 3) 대시 (베기 버튼 상단)
-    createTouchBtn(665, 390, 34, 0xa855f7, 'DASH', () => {
-      this.performDash();
-    });
-
-    // 4) 우측 상단 일시정지(PAUSE) 작은 버튼
-    createTouchBtn(760, 35, 20, 0x64748b, '||', () => {
-      this.input.keyboard.emit('keydown-ESC');
-    });
-  }
-
-  // 조이스틱 벡터 계산
-  updateJoystick(p) {
-    const joyX = 115;
-    const joyY = 475;
-    const maxDist = 52;
-
-    const dx = p.x - joyX;
-    const dy = p.y - joyY;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    const angle = Math.atan2(dy, dx);
-
-    const clampedDist = Math.min(dist, maxDist);
-    this.joyThumb.setPosition(
-      joyX + Math.cos(angle) * clampedDist,
-      joyY + Math.sin(angle) * clampedDist
-    );
-
-    // 데드존(8px) 이상 밀었을 때만 이동 반영
-    if (dist > 8) {
-      const force = clampedDist / maxDist;
-      this.joyData.vx = Math.cos(angle) * force;
-      this.joyData.vy = Math.sin(angle) * force;
-      this.joyData.angle = angle;
-      this.lastAimAngle = angle;
-    } else {
-      this.joyData.vx = 0;
-      this.joyData.vy = 0;
-    }
-  }
+  
 
   // ★ [핵심] PC 마우스 조준 & 모바일 스마트 오토에임 통합 각도 반환기
   getAimAngle() {
-    if (!this.isMobile) {
-      const worldPoint = this.cameras.main.getWorldPoint(
-        this.input.activePointer.x,
-        this.input.activePointer.y
-      );
-      return Phaser.Math.Angle.Between(
-        this.player.x,
-        this.player.y,
-        worldPoint.x,
-        worldPoint.y
-      );
-    }
+    const worldPoint = this.cameras.main.getWorldPoint(
+      this.input.activePointer.x,
+      this.input.activePointer.y
+    );
+    return Phaser.Math.Angle.Between(
+      this.player.x,
+      this.player.y,
+      worldPoint.x,
+      worldPoint.y
+    );
 
-    // 모바일 1순위: 근접 반경(220px) 내에 활성화된 적이나 제단이 있으면 가장 가까운 대상 자동 조준!
-    let nearestTarget = null;
-    let minDist = 220;
 
-    this.enemies.getChildren().forEach((e) => {
-      if (!e.active) return;
-      const d = Phaser.Math.Distance.Between(this.player.x, this.player.y, e.x, e.y);
-      if (d < minDist) {
-        minDist = d;
-        nearestTarget = e;
-      }
-    });
 
-    // 주변에 적이 없고 제단이 가까이 있다면 제단 조준
-    if (!nearestTarget && this.shrines) {
-      this.shrines.getChildren().forEach((s) => {
-        const d = Phaser.Math.Distance.Between(this.player.x, this.player.y, s.x, s.y);
-        if (d < 120) nearestTarget = s;
-      });
-    }
-
-    if (nearestTarget) {
-      this.lastAimAngle = Phaser.Math.Angle.Between(
-        this.player.x,
-        this.player.y,
-        nearestTarget.x,
-        nearestTarget.y
-      );
-      return this.lastAimAngle;
-    }
-
-    // 모바일 2순위: 주변에 적이 없으면 현재 조이스틱을 밀고 있는 방향(또는 마지막 이동 방향) 반환
-    return this.lastAimAngle || 0;
   }
 
+
+  
 }
-
-
-
 
 
 new Phaser.Game({
@@ -6598,14 +6399,9 @@ new Phaser.Game({
   width: 800,
   height: 600,
   parent: 'game-container',
-  // ★ 1. 모바일 화면 크기에 맞춰 비율을 유지하며 꽉 차게 정렬
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
-  },
-  // ★ 2. 멀티터치 지원 (조이스틱 + 공격/대시 동시 입력용 포인터 3개 확보)
-  input: {
-    activePointers: 3,
   },
   physics: { default: 'arcade', arcade: { debug: false } },
   scene: [PreloadScene, MainScene],
