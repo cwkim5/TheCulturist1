@@ -1759,6 +1759,14 @@ class MainScene extends Phaser.Scene {
     // =========================================================================
     // [기본 런지 & 초승달 단검 궤적 이펙트] (노덴스가 아닐 때만 실행됨)
     // =========================================================================
+    if (this.state.form === 'CTHUGHA') {
+      // ★ 크투가 반동: WASD를 0.12초간 막고 뒤로 강하게(350) 밀려납니다.
+      this.player.isLunging = true;
+      this.player.setVelocity(Math.cos(angle + Math.PI) * 350, Math.sin(angle + Math.PI) * 350);
+      this.time.delayedCall(120, () => {
+        if (this.player) this.player.isLunging = false;
+      });
+    } else {
     this.player.isLunging = true;
     const mult = this.state.form === 'THE FAITHLESS' ? 1.5 : 1.0;
     this.player.setVelocity(
@@ -1768,6 +1776,7 @@ class MainScene extends Phaser.Scene {
     this.time.delayedCall(90, () => {
       this.player.isLunging = false;
     });
+  }
 
     const slashGfx = this.add
       .graphics()
@@ -1947,11 +1956,10 @@ class MainScene extends Phaser.Scene {
     }
 
 
-    // ★ [크투가 평타 리워크] 사거리 대폭 확장(105px) + 화상 적 타격 시 화염 링 & 30% 확률 화염 장판!
+    // ★ [크투가 평타 리워크] 방사형 개별 넉백 적용
     else if (this.state.form === 'CTHUGHA') {
-      const cthughaRange = GAME_CONFIG.PLAYER.DAGGER_RANGE + 43; // 62 + 43 = 105px!
+      const cthughaRange = GAME_CONFIG.PLAYER.DAGGER_RANGE + 43;
 
-      // 넓어진 사거리를 시각적으로 보여주는 전방 화염 호(Arc) 이펙트 추가
       const flameWave = this.add
         .ellipse(
           this.player.x + Math.cos(angle) * 58,
@@ -1974,45 +1982,27 @@ class MainScene extends Phaser.Scene {
         onComplete: () => flameWave.destroy(),
       });
 
-      this.enemies.getChildren().forEach((e) => {
+      // 루프 도중 적이 죽어 배열이 꼬이지 않도록 복사본([...]) 순회
+      const targets = [...this.enemies.getChildren()];
+      targets.forEach((e) => {
         if (!e.active) return;
-        const dist = Phaser.Math.Distance.Between(
-          this.player.x,
-          this.player.y,
-          e.x,
-          e.y
-        );
-        const diff = Math.abs(
-          Phaser.Math.Angle.Wrap(
-            Phaser.Math.Angle.Between(
-              this.player.x,
-              this.player.y,
-              e.x,
-              e.y
-            ) - angle
-          )
-        );
+        const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, e.x, e.y);
+        
+        // ★ 플레이어 중심에서 각 적을 향하는 개별 각도 계산!
+        const enemyAngle = Phaser.Math.Angle.Between(this.player.x, this.player.y, e.x, e.y);
+        const diff = Math.abs(Phaser.Math.Angle.Wrap(enemyAngle - angle));
 
-        if (
-          dist <= cthughaRange + (e.isBoss ? 28 : 0) &&
-          diff <= halfArc + 0.28
-        ) {
+        if (dist <= cthughaRange + (e.isBoss ? 28 : 0) && diff <= halfArc + 0.28) {
           const isCounter = e.isWindingUp;
           const wasBurning = e.isBurning;
           const ex = e.x;
           const ey = e.y;
 
-          this.damageEnemy(
-            e,
-            GAME_CONFIG.PLAYER.DAGGER_DAMAGE,
-            angle,
-            isCounter
-          );
+          // ★ 일괄 angle 대신 개별 방향(enemyAngle)으로 밀어냄!
+          this.damageEnemy(e, GAME_CONFIG.PLAYER.DAGGER_DAMAGE, enemyAngle, isCounter);
 
-          // 이미 불타고 있던 적을 쳤을 때: 화염 링 폭발 + (80킬 알파 이상) 30% 확률로 화염 장판 생성!
           if (wasBurning) {
             this.triggerCthughaRing({ active: true, x: ex, y: ey });
-
             if (this.state.isExAwakened && Math.random() < 0.3) {
               this.spawnCthughaFireZone(ex, ey);
             }
@@ -2024,6 +2014,7 @@ class MainScene extends Phaser.Scene {
         }
       });
     }
+
     // 기본 폼 & 제단 3신 단검 타격 판정
     else {
       const isNyarlaChaos =
@@ -2224,6 +2215,8 @@ class MainScene extends Phaser.Scene {
         enemy.setTint(0xfca5a5);
       } else if (enemy.isBurning) {
         enemy.setTint(0xf97316); // 화상 상태면 주황빛 유지
+      } else if (enemy.isDeepOne && this.state.isAct2Escalated) {
+        enemy.setTint(0xc084fc);
       } else {
         enemy.clearTint();
       }
@@ -2360,7 +2353,7 @@ class MainScene extends Phaser.Scene {
     this.time.delayedCall(50, () => this.checkWaveAcceleration());
   }
 
-  collectBlood(orb) {
+  collectBlood(player, orb) {
     orb.destroy();
     if (this.state.isGameOver) return;
 
@@ -3267,12 +3260,17 @@ class MainScene extends Phaser.Scene {
     // 링 범위 내의 적들에게 범위 데미지(42) 및 화상 전염!
     const targets = [...this.enemies.getChildren()];
     targets.forEach((e) => {
-      if (!e || !e.active) return;
+      if (!e || !e.active || e === centerEnemy) return;
       const d = Phaser.Math.Distance.Between(ex, ey, e.x, e.y);
+      
       if (d <= ringRadius + (e.isBoss ? 24 : 0)) {
-        const pushAngle = Phaser.Math.Angle.Between(ex, ey, e.x, e.y);
+        // ★ 거리가 2px 미만(동일 좌표)이면 0도(오른쪽) 버그가 나므로 플레이어 기준 각도로 대체!
+        const pushAngle = d > 2 
+          ? Phaser.Math.Angle.Between(ex, ey, e.x, e.y)
+          : Phaser.Math.Angle.Between(this.player.x, this.player.y, e.x, e.y);
+
         this.damageEnemy(e, 42, pushAngle, false);
-        if (e.active) this.applyBurn(e); // 주변 적들도 모두 발화!
+        if (e.active) this.applyBurn(e);
       }
     });
   }
@@ -3350,36 +3348,41 @@ class MainScene extends Phaser.Scene {
     });
   }
 
-  // ★ [크투가 4 - 베타 전용] 화상 상태로 사망한 적에게서 '불타는 영혼(유도 화염구)' 사출!
+  // ★ [크투가 4 - 베타 전용] 화상 사망 시 사출되는 유도 화염 영혼 (타겟 증발 및 자기 타겟팅 버그 완벽 수정)
   spawnBurningSoul(startX, startY) {
     if (this.state.isGameOver) return;
 
-    // 주변(400px 이내)에서 살아있는 적 탐색
-    const validTargets = this.enemies
-      .getChildren()
-      .filter(
-        (e) =>
-          e.active &&
-          Phaser.Math.Distance.Between(startX, startY, e.x, e.y) <= 400
-      )
-      .sort(
-        (a, b) =>
-          Phaser.Math.Distance.Between(startX, startY, a.x, a.y) -
-          Phaser.Math.Distance.Between(startX, startY, b.x, b.y)
-      );
-
-    // 불타는 영혼 본체 생성
+    // 1. 불타는 영혼 비주얼 코어 생성
     const soul = this.add
-      .circle(startX, startY, 8, 0xfef08a, 1)
-      .setStrokeStyle(3, 0xf97316, 1)
+      .circle(startX, startY, 8, 0xf97316, 1)
+      .setStrokeStyle(3, 0xdc2626, 1)
       .setBlendMode(Phaser.BlendModes.ADD)
       .setDepth(15);
 
-    // 주변에 적이 없으면 제자리에서 작게 터지고 소멸
-    if (validTargets.length === 0) {
+    // 2. 살아있는 적 탐색 헬퍼 (★ 거리 5px 초과 조건으로 방금 죽은 자기 자신을 타겟팅하는 버그 원천 차단!)
+    const findTarget = (cx, cy) => {
+      const valid = this.enemies
+        .getChildren()
+        .filter((e) => {
+          if (!e.active || e.hp <= 0) return false;
+          const d = Phaser.Math.Distance.Between(cx, cy, e.x, e.y);
+          return d > 5 && d <= 550; // 자기 자신(d=0) 제외, 사거리 550px로 넉넉하게 확장
+        })
+        .sort(
+          (a, b) =>
+            Phaser.Math.Distance.Between(cx, cy, a.x, a.y) -
+            Phaser.Math.Distance.Between(cx, cy, b.x, b.y)
+        );
+      return valid.find((e) => e.isBurning) || valid[0] || null;
+    };
+
+    let target = findTarget(startX, startY);
+
+    // 주변에 적이 아예 없으면 제자리에서 화염 폭발을 일으키며 소멸
+    if (!target) {
       this.tweens.add({
         targets: soul,
-        scale: 2.5,
+        scale: 3.0,
         alpha: 0,
         duration: 250,
         onComplete: () => soul.destroy(),
@@ -3387,71 +3390,75 @@ class MainScene extends Phaser.Scene {
       return;
     }
 
-    // 가장 가까운 적(또는 화상 걸린 적 우선)을 타겟으로 지정
-    const target = validTargets.find((e) => e.isBurning) || validTargets[0];
+    // 3. 실시간 유도 비행 타이머 (타겟이 이동하거나 도중에 죽어도 끝까지 재추적!)
+    const speed = 17; // 20ms당 17px 이동 (초속 850px의 초고속 유도탄)
+    let ticks = 0;
 
-    // 잔상 생성 타이머
-    const trailEvent = this.time.addEvent({
-      delay: 35,
+    const flyTimer = this.time.addEvent({
+      delay: 20,
       loop: true,
       callback: () => {
-        if (!soul.active) return;
-        const afterimg = this.add
-          .circle(soul.x, soul.y, 5, 0xf97316, 0.65)
-          .setBlendMode(Phaser.BlendModes.ADD)
-          .setDepth(14);
-        this.tweens.add({
-          targets: afterimg,
-          scale: 0.2,
-          alpha: 0,
-          duration: 180,
-          onComplete: () => afterimg.destroy(),
-        });
-      },
-    });
-
-    // 타겟을 향해 빠르게 날아가 타격!
-    this.tweens.add({
-      targets: soul,
-      x: target.x,
-      y: target.y,
-      duration: 260,
-      ease: 'Quad.easeIn',
-      onUpdate: () => {
-        // 날아가는 도중 타겟이 움직이면 좌표 실시간 추적
-        if (target && target.active) {
-          soul.x = Phaser.Math.Linear(soul.x, target.x, 0.25);
-          soul.y = Phaser.Math.Linear(soul.y, target.y, 0.25);
+        if (!soul.active || this.state.isGameOver) {
+          flyTimer.remove();
+          if (soul.active) soul.destroy();
+          return;
         }
-      },
-      onComplete: () => {
-        trailEvent.remove();
-        soul.destroy();
-        if (this.state.isGameOver || !target || !target.active) return;
+        if (this.physics.world.isPaused) return;
 
-        // ★ 핵심 연쇄 기믹: 타겟이 이미 화상 상태였다면 화염 링 폭발 트리거!
-        const wasBurning = target.isBurning;
-        const hitAngle = Phaser.Math.Angle.Between(
-          startX,
-          startY,
-          target.x,
-          target.y
-        );
+        ticks++;
 
-        this.damageEnemy(target, 45, hitAngle, false);
-
-        if (target.active) {
-          this.applyBurn(target);
-          if (wasBurning) {
-            this.triggerCthughaRing(target); // 화염구 타격으로도 화염 링 연쇄 폭발!
+        // ★ 날아가는 도중 타겟이 다른 폭발에 맞아 죽었다면 즉시 새로운 타겟 재탐색!
+        if (!target || !target.active || target.hp <= 0) {
+          target = findTarget(soul.x, soul.y);
+          if (!target) {
+            // 더 이상 맵에 살아있는 적이 없으면 현재 위치에 광역 폭발 후 종료
+            flyTimer.remove();
+            this.triggerCthughaRing({ active: true, x: soul.x, y: soul.y });
+            soul.destroy();
+            return;
           }
-        } else if (wasBurning) {
-          // 만약 이 타격으로 적이 죽었더라도 화염 링은 터뜨려줌
-          this.triggerCthughaRing({
-            active: true,
-            x: target.x,
-            y: target.y,
+        }
+
+        // 잔상 이펙트
+        if (ticks % 2 === 0) {
+          const afterimg = this.add
+            .circle(soul.x, soul.y, 5, 0xdc2626, 0.7)
+            .setBlendMode(Phaser.BlendModes.ADD)
+            .setDepth(14);
+          this.tweens.add({
+            targets: afterimg,
+            scale: 0.2,
+            alpha: 0,
+            duration: 160,
+            onComplete: () => afterimg.destroy(),
           });
+        }
+
+        // 타겟을 향해 전진
+        const dist = Phaser.Math.Distance.Between(soul.x, soul.y, target.x, target.y);
+        const moveAngle = Phaser.Math.Angle.Between(soul.x, soul.y, target.x, target.y);
+
+        // ★ 명중 판정!
+        if (dist <= speed + (target.isBoss ? 28 : 14) || ticks > 70) {
+          flyTimer.remove();
+          const tx = target.x;
+          const ty = target.y;
+          const wasBurning = target.isBurning;
+
+          soul.destroy();
+
+          // 직격 데미지(55) 및 화상 부여
+          this.damageEnemy(target, 55, moveAngle, false);
+
+          if (target.active) {
+            this.applyBurn(target);
+            if (wasBurning) this.triggerCthughaRing(target);
+          } else if (wasBurning) {
+            this.triggerCthughaRing({ active: true, x: tx, y: ty });
+          }
+        } else {
+          soul.x += Math.cos(moveAngle) * speed;
+          soul.y += Math.sin(moveAngle) * speed;
         }
       },
     });
@@ -3669,18 +3676,96 @@ class MainScene extends Phaser.Scene {
     }
   }
 
-  // ★ [50킬 이벤트] 1차 증원 (기존보다 완만하게 조정하여 50~80킬 호흡 확보)
+  // ★ [50킬 이벤트] 1차 증원 (부드럽고 묵직한 easeInOut 점멸 적용)
   triggerWaveEscalation() {
-    this.cameras.main.shake(300, 0.012);
-    this.cameras.main.flash(250, 180, 0, 0);
+    this.state.isAct1Escalated = true;
 
+    // 1. 즉발성 flash를 빼고 묵직한 진동만 유지해 눈부심 방지
+    this.cameras.main.shake(800, 0.018);
+
+    const cx = this.cameras.main.centerX;
+    const cy = this.cameras.main.centerY;
+
+    // 2. 화면 테두리 프레임 (alpha 0에서 시작해 부드럽게 호흡하듯 점멸)
+    const warningOverlay = this.add
+      .rectangle(cx, cy, 800, 600, 0x660000, 0)
+      .setStrokeStyle(18, 0xdc2626, 1)
+      .setScrollFactor(0)
+      .setDepth(195)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setAlpha(0);
+
+    this.tweens.add({
+      targets: warningOverlay,
+      alpha: 0.45,
+      duration: 550, // 호흡을 살짝 늘려 easeInOut 곡선이 잘 느껴지도록 조정
+      yoyo: true,
+      repeat: 2, // 3회 부드럽게 명멸 후 자연스럽게 alpha 0으로 소멸
+      ease: 'Cubic.easeInOut',
+      onComplete: () => warningOverlay.destroy(),
+    });
+
+    // 3. 화면 중앙 영문 경고 배너 (등장 및 소멸 모두 easeInOut으로 통일)
+    const warnBanner = this.add
+      .text(
+        cx,
+        cy - 55,
+        '⚠️ INQUISITION REINFORCEMENTS ⚠️\n[ THE CRUSADE INTENSIFIES ]',
+        {
+          fontFamily: 'Georgia, serif',
+          fontSize: '28px',
+          color: '#ef4444',
+          align: 'center',
+          fontStyle: 'bold',
+          stroke: '#000000',
+          strokeThickness: 6,
+          shadow: {
+            offsetX: 0,
+            offsetY: 0,
+            color: '#991b1b',
+            blur: 16,
+            fill: true,
+          },
+        }
+      )
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(200)
+      .setAlpha(0)
+      .setScale(0.92);
+
+    this.tweens.add({
+      targets: warnBanner,
+      alpha: 1,
+      scale: 1.0,
+      duration: 450,
+      ease: 'Cubic.easeInOut',
+      onComplete: () => {
+        this.tweens.add({
+          targets: warnBanner,
+          y: warnBanner.y - 25,
+          alpha: 0,
+          delay: 1400,
+          duration: 650,
+          ease: 'Cubic.easeInOut',
+          onComplete: () => warnBanner.destroy(),
+        });
+      },
+    });
+
+    // 4. 스폰 주기 단축 및 현재 필드 적 이속 1.35배 가속
     this.initAct1Loop(850, 2400);
 
-    // 즉석 소환도 4마리 -> 2마리로 축소
-    for (let i = 0; i < 2; i++) this.spawnCrusader();
+    this.enemies.getChildren().forEach((e) => {
+      if (!e.active || e.isBoss || e.isDeepOne || e.isVoidCaller) return;
+      if (e.isRanged) e.baseSpeed = GAME_CONFIG.RANGED_ENEMY.SPEED * 1.35;
+      else e.baseSpeed = GAME_CONFIG.ENEMY.SPEED * 1.35;
+    });
+
+    for (let i = 0; i < 3; i++) this.spawnCrusader();
 
     this.hudGuide
-      .setText('⚠️ [Inquisition Reinforcements] Crusader pressure intensifies...')
+      .setText('⚠️ [Inquisition Reinforcements] Enemy movement speed and spawn rate increased!')
       .setColor('#f43f5e');
   }
 
@@ -3932,61 +4017,210 @@ class MainScene extends Phaser.Scene {
   renderDynamicTentacles(time) {
     this.tentacleGfx.clear();
     const form = this.state.form;
+    const tier = this.state.awakeningTier || 0; // 0: 기본, 1: 알파, 2: 베타
 
-    // 1. 다곤 전용 심해 어인 꼬리 렌더링
+    // ========================================================================
+    // 1. 다곤 (DAGON) : 심해 어인 꼬리
+    // ========================================================================
     if (form === 'DAGON') {
       const baseAngle = this.player.rotation + Math.PI;
+      const segs = 6 + tier;
       const points = [{ x: this.player.x, y: this.player.y, width: 14 }];
 
-      for (let i = 1; i <= 6; i++) {
+      for (let i = 1; i <= segs; i++) {
         const dist = i * 11;
         const sway = Math.sin(time * 0.007 - i * 0.5) * (i * 3.5);
-        const px =
-          this.player.x +
-          Math.cos(baseAngle) * dist +
-          Math.cos(baseAngle + Math.PI / 2) * sway;
-        const py =
-          this.player.y +
-          Math.sin(baseAngle) * dist +
-          Math.sin(baseAngle + Math.PI / 2) * sway;
+        const px = this.player.x + Math.cos(baseAngle) * dist + Math.cos(baseAngle + Math.PI / 2) * sway;
+        const py = this.player.y + Math.sin(baseAngle) * dist + Math.sin(baseAngle + Math.PI / 2) * sway;
         points.push({ x: px, y: py, width: Math.max(14 - i * 1.8, 3) });
       }
 
       points.forEach((p, idx) => {
-        this.tentacleGfx.fillStyle(0x0ea5e9, 0.9 - idx * 0.1);
+        this.tentacleGfx.fillStyle(tier >= 2 ? 0x38bdf8 : 0x0ea5e9, 0.9 - idx * 0.1);
         this.tentacleGfx.fillCircle(p.x, p.y, p.width);
       });
       return;
     }
 
-    // 2. 3대 신격 촉수 렌더링
-    if (form !== 'HASTUR' && form !== 'NYARLATHOTEP' && form !== 'CTHULHU')
-      return;
+    // ========================================================================
+    // 2. 크투가 (CTHUGHA) : 검붉은 심연의 열기 아지랑이
+    // ========================================================================
+    if (form === 'CTHUGHA') {
+      const rings = 1 + tier;
+      const cthughaColors = [0xf97316, 0xdc2626, 0x7f1d1d];
 
-    let count = form === 'CTHULHU' ? 6 : form === 'HASTUR' ? 5 : 4;
-    let color =
-      form === 'CTHULHU' ? 0x10b981 : form === 'HASTUR' ? 0xfacc15 : 0xa855f7;
-    let lineWidth = form === 'CTHULHU' ? 4 : 3;
+      for (let r = 0; r < rings; r++) {
+        const radius = 17 + r * 5.5;
+        const color = cthughaColors[r] || 0x7f1d1d;
+        this.tentacleGfx.lineStyle(2.5 - r * 0.4, color, 0.85 - r * 0.22);
+        this.tentacleGfx.beginPath();
 
-    this.tentacleGfx.lineStyle(lineWidth, color, 0.85);
-    for (let i = 0; i < count; i++) {
-      const baseAngle =
-        this.player.rotation + Math.PI + (i - (count - 1) / 2) * 0.45;
-      this.tentacleGfx.beginPath().moveTo(this.player.x, this.player.y);
-      for (let s = 1; s <= 4; s++) {
-        const lengthStep = form === 'CTHULHU' ? 13 : 11;
-        const waveAmp = form === 'CTHULHU' ? 5.5 : 4.5;
-        const w = Math.sin(time * 0.012 + i * 2 + s) * (s * waveAmp);
-        this.tentacleGfx.lineTo(
-          this.player.x +
-          Math.cos(baseAngle) * (s * lengthStep) +
-          Math.cos(baseAngle + 1.57) * w,
-          this.player.y +
-          Math.sin(baseAngle) * (s * lengthStep) +
-          Math.sin(baseAngle + 1.57) * w
-        );
+        for (let i = 0; i <= 24; i++) {
+          const a = (i * Math.PI * 2) / 24;
+          const wave = Math.sin(time * 0.015 + i * 3 + r * 2) * (2.2 + tier * 1.1);
+          const wx = this.player.x + Math.cos(a) * (radius + wave);
+          const wy = this.player.y + Math.sin(a) * (radius + wave);
+          if (i === 0) this.tentacleGfx.moveTo(wx, wy);
+          else this.tentacleGfx.lineTo(wx, wy);
+        }
+        this.tentacleGfx.closePath().strokePath();
       }
-      this.tentacleGfx.strokePath();
+      return;
+    }
+
+    // ========================================================================
+    // 3. 노덴스 & 무신앙자 (NODENS & THE FAITHLESS) : 회전하는 검기/혈기
+    // ========================================================================
+    if (form === 'NODENS' || form === 'THE FAITHLESS') {
+      if (tier === 0) return;
+      const isNodens = form === 'NODENS';
+      const bladeCount = tier * 2;
+      this.tentacleGfx.lineStyle(2, isNodens ? 0x38bdf8 : 0xef4444, 0.8);
+
+      for (let i = 0; i < bladeCount; i++) {
+        const orbitAngle = time * (isNodens ? 0.005 : -0.008) + (i * Math.PI * 2) / bladeCount;
+        const r = 22 + Math.sin(time * 0.01 + i) * 3;
+        this.tentacleGfx.beginPath();
+        this.tentacleGfx.arc(this.player.x, this.player.y, r, orbitAngle, orbitAngle + 0.8);
+        this.tentacleGfx.strokePath();
+      }
+      return;
+    }
+
+    // ========================================================================
+    // 4. 니알라토텝 (NYARLATHOTEP) : 기어오는 혼돈의 그림자 가시 & 마안(Eye)
+    // ========================================================================
+    if (form === 'NYARLATHOTEP') {
+      const isChaos = this.state.isChaos;
+      const spikeCount = 4 + tier * 2 + (isChaos ? 2 : 0); // 기본 4 -> 알파 6 -> 베타 8
+      const baseAngle = this.player.rotation + Math.PI;
+
+      // (A) 등 뒤에서 날카롭게 찢어지는 비유클리드 그림자 가시 (촉수 대체)
+      for (let i = 0; i < spikeCount; i++) {
+        const spread = (i - (spikeCount - 1) / 2) * 0.38;
+        const jitter = Math.sin(time * (isChaos ? 0.035 : 0.018) + i * 2.3) * 0.15;
+        const a = baseAngle + spread + jitter;
+
+        // 가시 길이가 기괴하게 늘었다 줄어듦
+        const len = 28 + tier * 5 + Math.sin(time * 0.025 + i * 1.7) * 10;
+        const midLen = len * 0.55;
+        const zig = (i % 2 === 0 ? 1 : -1) * 6;
+
+        const mx = this.player.x + Math.cos(a) * midLen + Math.cos(a + Math.PI / 2) * zig;
+        const my = this.player.y + Math.sin(a) * midLen + Math.sin(a + Math.PI / 2) * zig;
+        const tx = this.player.x + Math.cos(a) * len;
+        const ty = this.player.y + Math.sin(a) * len;
+
+        // 검은 공허의 그림자 외곽선 + 보랏빛 코어 라인
+        this.tentacleGfx.lineStyle(4, 0x1e0b36, 0.9);
+        this.tentacleGfx.beginPath().moveTo(this.player.x, this.player.y).lineTo(mx, my).lineTo(tx, ty).strokePath();
+
+        this.tentacleGfx.lineStyle(1.8, isChaos ? 0xf43f5e : 0xc084fc, 0.95);
+        this.tentacleGfx.beginPath().moveTo(this.player.x, this.player.y).lineTo(mx, my).lineTo(tx, ty).strokePath();
+      }
+
+      // (B) 진화(알파 이상) 또는 폭주 시 주변에 피어나는 '기어오는 혼돈의 마안'
+      const eyeCount = tier + (isChaos ? 2 : 0);
+      for (let e = 0; e < eyeCount; e++) {
+        const orbitA = -time * 0.004 + (e * Math.PI * 2) / eyeCount;
+        const dist = 26 + Math.sin(time * 0.008 + e) * 4;
+        const ex = this.player.x + Math.cos(orbitA) * dist;
+        const ey = this.player.y + Math.sin(orbitA) * dist;
+
+        // 눈을 깜빡이는 주기 (Blink)
+        const blink = Math.max(0.1, Math.sin(time * 0.006 + e * 2));
+        this.tentacleGfx.fillStyle(isChaos ? 0xf43f5e : 0xa855f7, 0.85);
+        this.tentacleGfx.fillEllipse(ex, ey, 9, 5 * blink);
+        if (blink > 0.4) {
+          this.tentacleGfx.fillStyle(0x090414, 1);
+          this.tentacleGfx.fillCircle(ex, ey, 1.8); // 세로 동공 코어
+        }
+      }
+      return;
+    }
+
+    // ========================================================================
+    // 5. 하스터 (HASTUR) : 고정 5촉수 + 생멸을 반복하는 황색 인장 마법진
+    // ========================================================================
+    if (form === 'HASTUR') {
+      // (A) 진화 시 플레이어 위치에서 생겼다가 사라지기를 반복하는 마법진 오라
+      if (tier >= 1) {
+        // 1.8초 주기로 0 -> 1로 팽창하며 서서히 나타났다 사라짐
+        const cycle = (time % 1800) / 1800;
+        const auraAlpha = Math.sin(cycle * Math.PI) * (tier >= 2 ? 0.65 : 0.45);
+        const auraRadius = 18 + cycle * (tier >= 2 ? 26 : 18);
+        const rot = time * 0.002;
+
+        this.tentacleGfx.lineStyle(2, 0xfacc15, auraAlpha);
+        this.tentacleGfx.strokeCircle(this.player.x, this.player.y, auraRadius);
+
+        // 마법진 내부의 회전하는 황색 삼각 인장 (Yellow Sign)
+        this.tentacleGfx.lineStyle(1.5, 0xfef08a, auraAlpha * 0.9);
+        this.tentacleGfx.beginPath();
+        for (let i = 0; i < 3; i++) {
+          const a = rot + (i * Math.PI * 2) / 3;
+          const vx = this.player.x + Math.cos(a) * auraRadius;
+          const vy = this.player.y + Math.sin(a) * auraRadius;
+          if (i === 0) this.tentacleGfx.moveTo(vx, vy);
+          else this.tentacleGfx.lineTo(vx, vy);
+        }
+        this.tentacleGfx.closePath().strokePath();
+
+        // 베타(Tier 2) 진화 시 역회전하는 두 번째 외곽 결계 링 추가!
+        if (tier >= 2) {
+          const cycle2 = ((time + 900) % 1800) / 1800; // 첫 번째 링과 엇박자 호흡
+          const alpha2 = Math.sin(cycle2 * Math.PI) * 0.5;
+          const rad2 = 22 + cycle2 * 28;
+          this.tentacleGfx.lineStyle(1.5, 0xfde047, alpha2);
+          this.tentacleGfx.strokeCircle(this.player.x, this.player.y, rad2);
+        }
+      }
+
+      // (B) 하스터 촉수는 원래 길이(4마디, 간격 11)와 원래 개수(5개)로 깔끔하게 고정!
+      const count = 5;
+      this.tentacleGfx.lineStyle(3, 0xfacc15, 0.85);
+      for (let i = 0; i < count; i++) {
+        const baseAngle = this.player.rotation + Math.PI + (i - (count - 1) / 2) * 0.45;
+        this.tentacleGfx.beginPath().moveTo(this.player.x, this.player.y);
+        for (let s = 1; s <= 4; s++) {
+          const w = Math.sin(time * 0.012 + i * 2 + s) * (s * 4.5);
+          this.tentacleGfx.lineTo(
+            this.player.x + Math.cos(baseAngle) * (s * 11) + Math.cos(baseAngle + 1.57) * w,
+            this.player.y + Math.sin(baseAngle) * (s * 11) + Math.sin(baseAngle + 1.57) * w
+          );
+        }
+        this.tentacleGfx.strokePath();
+      }
+      return;
+    }
+
+    // ========================================================================
+    // 6. 크툴루 (CTHULHU) : 길이 고정 + 현재 발사되는 탄환 수만큼 촉수 개수 증가!
+    // ========================================================================
+    if (form === 'CTHULHU') {
+      // 평타 탄환 수 공식과 100% 동일하게 동기화 (기본 1발 + 25킬당 1발 + 알파 각성 시 2발, 최대 5발)
+      const bonusShots = Math.floor(this.state.kills / 25);
+      const currentBullets = Math.min(1 + bonusShots + (this.state.isExAwakened ? 2 : 0), 5);
+
+      // 기본 촉수 3가닥 + 현재 탄환 수(1~5) = 총 4가닥에서 시작해 탄환이 늘어날 때마다 최대 8가닥까지 증가!
+      // (만약 정확히 탄환 개수와 1:1로 맞추고 싶다면 아래 식을 const count = currentBullets; 로 바꾸셔도 됩니다!)
+      const count = 3 + currentBullets;
+      const spread = count > 6 ? 0.36 : 0.45; // 가닥이 많아지면 부채꼴 간격을 살짝 좁혀 밀도 유지
+
+      this.tentacleGfx.lineStyle(4, 0x10b981, 0.85);
+      for (let i = 0; i < count; i++) {
+        const baseAngle = this.player.rotation + Math.PI + (i - (count - 1) / 2) * spread;
+        this.tentacleGfx.beginPath().moveTo(this.player.x, this.player.y);
+        // ★ 길이는 늘리지 않고 원래의 4마디(s <= 4, 간격 13)로 고정!
+        for (let s = 1; s <= 4; s++) {
+          const w = Math.sin(time * 0.012 + i * 2 + s) * (s * 5.5);
+          this.tentacleGfx.lineTo(
+            this.player.x + Math.cos(baseAngle) * (s * 13) + Math.cos(baseAngle + 1.57) * w,
+            this.player.y + Math.sin(baseAngle) * (s * 13) + Math.sin(baseAngle + 1.57) * w
+          );
+        }
+        this.tentacleGfx.strokePath();
+      }
     }
   }
 
@@ -4450,6 +4684,7 @@ class MainScene extends Phaser.Scene {
       .setCollideWorldBounds(true);
 
     e.hp = GAME_CONFIG.ENEMY.HP;
+    e.baseSpeed = this.state.isAct1Escalated ? GAME_CONFIG.ENEMY.SPEED * 1.35 : GAME_CONFIG.ENEMY.SPEED;
     e.isWindingUp = false;
     e.isAttacking = false;
     e.isKnockedBack = false;
@@ -4472,6 +4707,7 @@ class MainScene extends Phaser.Scene {
       .setDepth(8)
       .setCollideWorldBounds(true);
     enemy.hp = GAME_CONFIG.RANGED_ENEMY.HP;
+    enemy.baseSpeed = this.state.isAct1Escalated ? GAME_CONFIG.ENEMY.SPEED * 1.35 : GAME_CONFIG.ENEMY.SPEED;
     enemy.isRanged = true; // 원거리 적 구분용 플래그
     enemy.isWindingUp = false;
     enemy.isAttacking = false;
@@ -5732,7 +5968,7 @@ class MainScene extends Phaser.Scene {
           });
         } else if (!e.isWindingUp && !e.isAttacking) {
           // Act 2 몹은 별도의 baseSpeed를 세팅해뒀다면 그것을 사용
-          this.physics.moveToObject(e, this.player, GAME_CONFIG.ENEMY.SPEED * slowMult);
+          this.physics.moveToObject(e, this.player, (e.baseSpeed || GAME_CONFIG.RANGED_ENEMY.SPEED) * slowMult);
         }
         return; // 원거리 로직 끝
       }
@@ -5825,7 +6061,7 @@ class MainScene extends Phaser.Scene {
           );
         } else {
           // Act 1 성전사: 정직한 직선 추적
-          this.physics.moveToObject(e, this.player, (e.baseSpeed || GAME_CONFIG.RANGED_ENEMY.SPEED) * slowMult);
+          this.physics.moveToObject(e, this.player, (e.baseSpeed || GAME_CONFIG.ENEMY.SPEED) * slowMult);
         }
       }
     });
