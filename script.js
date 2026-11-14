@@ -2356,9 +2356,11 @@ class MainScene extends Phaser.Scene {
     if (this.state.form === 'NYARLATHOTEP') {
       this.triggerNyarlaBlink(enemy, true);
     }
+
+    this.time.delayedCall(50, () => this.checkWaveAcceleration());
   }
 
-  collectBlood(player, orb) {
+  collectBlood(orb) {
     orb.destroy();
     if (this.state.isGameOver) return;
 
@@ -4548,6 +4550,27 @@ class MainScene extends Phaser.Scene {
     caller.isVoidCaller = true;
     caller.isRanged = true;
     if (isEsc) caller.setScale(1.15);     // 덩치 15% 확대
+  }
+
+  checkWaveAcceleration() {
+    if (this.state. isBossSpawned || this.state.isAct2Waiting || this.state.isGameOver) return;
+    const activeEnemies = this.enemies.getChildren().filter(e => e.active && !e.isBoss).length;
+
+    if (activeEnemies <= 1) {
+      if (this.state.isAct2) {
+        this.spawnDeepOne();
+        this.spawnDeepOne();
+        if (this.state.kills >= 130 && Math.random() < 0.4) {
+          this.spawnVoidCaller();
+        }
+      } else {
+        this.spawnCrusader();
+        this.spawnCrusader();
+        if (this.state.kills >= 30 && Math.random() < 0.4) {
+          this.spawnInquisitor();
+        }
+      }
+    }
   }
 
   initAct1Loop(
