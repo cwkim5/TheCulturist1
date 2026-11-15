@@ -540,42 +540,67 @@ class MainScene extends Phaser.Scene {
           this.cameras.main.flash(80, 56, 189, 248);
           this.registerParrySuccess(); // ★ 패링 성공 카운트!
 
+          // ★ [추가] 패링 성공 시 일시 무적 부여 (다곤 600ms, 그 외 400ms)
+          const invDuration = this.state.form === 'DAGON' ? 600 : 400;
+          this.state.isInvulnerable = true;
+          this.player.setAlpha(0.75);
+          if (this.parryInvTimer) this.parryInvTimer.remove();
+          this.parryInvTimer = this.time.delayedCall(invDuration, () => {
+            this.state.isInvulnerable = false;
+            if (this.player && this.player.active) {
+              this.player.setAlpha(1);
+              this.restoreFormTint();
+            }
+          });
+
           if (this.state.form === 'DAGON') {
             this.triggerDagonWave();
             bolt.isDeflected = true;
-            bolt.setTint(0x0ea5e9); // 심해의 푸른빛으로 변환
 
-            // 가장 가까운 적을 찾아 조준
-            let target = this.enemies.getChildren()[0];
-            if (target) {
-              const reflectAngle = Phaser.Math.Angle.Between(
-                bolt.x,
-                bolt.y,
-                target.x,
-                target.y
-              );
-              bolt.setVelocity(
-                Math.cos(reflectAngle) * 500,
-                Math.sin(reflectAngle) * 500
-              ); // 2배 이상 빠르게 역분사
-
-              // ★ [80킬 초월: 다곤] 반사 탄환 좌우로 2발의 추가 심해 탄환 분열 발사!
-              if (this.state.isExAwakened) {
-                [-0.25, 0.25].forEach((offset) => {
-                  const splitBolt = this.projectiles
-                    .create(bolt.x, bolt.y, 'dagon_needle')
-                    .setScale(1.3)
-                    .setDepth(9);
-                  splitBolt.isDeflected = true;
-                  splitBolt.setVelocity(
-                    Math.cos(reflectAngle + offset) * 480,
-                    Math.sin(reflectAngle + offset) * 480
-                  );
-                  this.time.delayedCall(2500, () => {
-                    if (splitBolt.active) splitBolt.destroy();
-                  });
-                });
+            // ★ 가장 가까운 살아있는 적 탐색 (없으면 날아오던 역방향으로 반사)
+            let target = null;
+            let minDist = Infinity;
+            this.enemies.getChildren().forEach((e) => {
+              if (!e.active) return;
+              const d = Phaser.Math.Distance.Between(bolt.x, bolt.y, e.x, e.y);
+              if (d < minDist) {
+                minDist = d;
+                target = e;
               }
+            });
+
+            const reflectAngle = target
+              ? Phaser.Math.Angle.Between(bolt.x, bolt.y, target.x, target.y)
+              : Math.atan2(-bolt.body.velocity.y, -bolt.body.velocity.x);
+
+            // ★ 본체 탄환도 파란 바늘(dagon_needle)로 교체 및 진행 방향 회전!
+            bolt.setTexture('dagon_needle');
+            bolt.clearTint(); // Preload에서 그린 바늘 본연의 투톤 컬러 유지
+            bolt.setScale(1.3);
+            bolt.setRotation(reflectAngle);
+            bolt.setVelocity(
+              Math.cos(reflectAngle) * 500,
+              Math.sin(reflectAngle) * 500
+            );
+
+            // ★ [80킬 초월: 다곤] 반사 탄환 좌우로 2발의 추가 심해 바늘 분열 발사!
+            if (this.state.isExAwakened) {
+              [-0.25, 0.25].forEach((offset) => {
+                const splitAngle = reflectAngle + offset;
+                const splitBolt = this.projectiles
+                  .create(bolt.x, bolt.y, 'dagon_needle')
+                  .setScale(1.3)
+                  .setRotation(splitAngle) // ★ 분열 바늘도 각도에 맞춰 회전!
+                  .setDepth(9);
+                splitBolt.isDeflected = true;
+                splitBolt.setVelocity(
+                  Math.cos(splitAngle) * 480,
+                  Math.sin(splitAngle) * 480
+                );
+                this.time.delayedCall(2500, () => {
+                  if (splitBolt.active) splitBolt.destroy();
+                });
+              });
             }
           } else {
             bolt.destroy(); // 다곤이 아니면 그냥 파괴
@@ -6436,6 +6461,192 @@ class MainScene extends Phaser.Scene {
       // 1.2초 뒤부터 마우스 클릭 또는 R키 입력 허용
       this.input.once('pointerdown', doRestart);
       this.input.keyboard.once('keydown-R', doRestart);
+    });
+  }
+
+  // ★ [최종 보스 처치] 승리(클리어) 연출 및 엔딩 화면
+  triggerVictoryScreen() {
+    if (this.state.isGameOver) return;
+    this.state.isGameOver = true;
+
+    // 1. 모든 스폰 루프 정지 및 잔존 적/투사체 일괄 정리
+    if (this.act1Timer) this.act1Timer.remove();
+    if (this.act1RangedTimer) this.act1RangedTimer.remove();
+    if (this.act2Timer) this.act2Timer.remove();
+    if (this.act2RangedTimer) this.act2RangedTimer.remove();
+    if (this.chaosDamageTimer) this.chaosDamageTimer.remove();
+
+    this.projectiles.clear(true, true);
+    this.enemies.getChildren().forEach((e) => {
+      if (e.active) e.destroy();
+    });
+
+    // 플레이어 무적 및 정지
+    this.state.isInvulnerable = true;
+    this.player.setVelocity(0, 0);
+
+    // 2. 신격별 고유 테마 컬러 및 승천 타이틀 매핑
+    const FORM_THEMES = {
+      'MORTAL CULTIST': { color: '#ef4444', hex: 0x991b1b, title: 'THE USURPER OF THE ABYSS' },
+      HASTUR: { color: '#facc15', hex: 0xfacc15, title: 'THE KING IN YELLOW REIGNS' },
+      CTHULHU: { color: '#10b981', hex: 0x10b981, title: 'LORD OF SUNKEN R\'LYEH' },
+      NYARLATHOTEP: { color: '#c084fc', hex: 0xa855f7, title: 'THE CRAWLING CHAOS TRIUMPHS' },
+      DAGON: { color: '#38bdf8', hex: 0x0ea5e9, title: 'SOVEREIGN OF THE TRENCHES' },
+      NODENS: { color: '#7dd3fc', hex: 0x38bdf8, title: 'HUNTER OF THE GREAT ABYSS' },
+      'THE FAITHLESS': { color: '#f87171', hex: 0xef4444, title: 'THE GODSLAYER UNBOUND' },
+      CTHUGHA: { color: '#fb923c', hex: 0xf97316, title: 'THE LIVING FLAME CONSUMES ALL' },
+    };
+
+    const theme = FORM_THEMES[this.state.form] || FORM_THEMES['MORTAL CULTIST'];
+    const tierSuffix =
+      this.state.awakeningTier >= 2
+        ? ` - ${this.state.awakeningPath || 'BETA'}`
+        : this.state.awakeningTier === 1
+        ? ' - ALPHA'
+        : '';
+
+    // 3. 카메라 슬로우 모션 여운 & 진동/플래시
+    this.cameras.main.shake(900, 0.025);
+    this.cameras.main.flash(700, 255, 255, 255);
+
+    const cx = this.cameras.main.centerX;
+    const cy = this.cameras.main.centerY;
+
+    // 4. 심연의 암전 배경 레이어 (서서히 페이드 인)
+    const bgOverlay = this.add
+      .rectangle(cx, cy, 800, 600, 0x05050a, 0)
+      .setScrollFactor(0)
+      .setDepth(300);
+
+    // 외곽 신격 테마 프레임
+    const borderFrame = this.add
+      .rectangle(cx, cy, 760, 560)
+      .setStrokeStyle(4, theme.hex, 0)
+      .setScrollFactor(0)
+      .setDepth(301);
+
+    this.tweens.add({
+      targets: bgOverlay,
+      fillAlpha: 0.88,
+      duration: 1200,
+      ease: 'Cubic.easeOut',
+    });
+
+    this.tweens.add({
+      targets: borderFrame,
+      strokeAlpha: 0.6,
+      duration: 1500,
+      ease: 'Cubic.easeOut',
+    });
+
+    // 5. 메인 승리 타이틀
+    const titleText = this.add
+      .text(cx, cy - 110, 'APOTHEOSIS COMPLETE', {
+        fontFamily: 'Georgia, serif',
+        fontSize: '42px',
+        color: theme.color,
+        fontStyle: 'bold',
+        stroke: '#000000',
+        strokeThickness: 8,
+        shadow: {
+          offsetX: 0,
+          offsetY: 0,
+          color: theme.color,
+          blur: 22,
+          fill: true,
+        },
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(302)
+      .setAlpha(0)
+      .setScale(0.85);
+
+    // 서브 타이틀 (달성한 신격 문구)
+    const subTitle = this.add
+      .text(cx, cy - 50, `[ ${theme.title} ]`, {
+        fontFamily: 'Georgia, serif',
+        fontSize: '18px',
+        color: '#e2e8f0',
+        letterSpacing: 3,
+        stroke: '#000000',
+        strokeThickness: 4,
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(302)
+      .setAlpha(0);
+
+    // 6. 전투 기록 요약 (최종 폼, 총 처치 수, 패링 횟수 등)
+    const statsSummary = [
+      `ASCENDED FORM :  ${this.state.form}${tierSuffix}`,
+      `TOTAL SACRIFICES :  ${this.state.kills} KILLS`,
+      `PARRIES EXECUTED :  ${this.state.parryCount || 0}`,
+      `REMAINING VITALITY :  ${Math.max(0, Math.floor(this.state.hp))} / ${this.state.maxHp}`,
+    ].join('\n\n');
+
+    const statsText = this.add
+      .text(cx, cy + 45, statsSummary, {
+        fontFamily: 'monospace',
+        fontSize: '16px',
+        color: '#cbd5e1',
+        align: 'center',
+        stroke: '#000000',
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(302)
+      .setAlpha(0);
+
+    // 7. 텍스트 순차 등장 연출
+    this.tweens.add({
+      targets: titleText,
+      alpha: 1,
+      scale: 1,
+      delay: 400,
+      duration: 800,
+      ease: 'Back.easeOut',
+    });
+
+    this.tweens.add({
+      targets: [subTitle, statsText],
+      alpha: 1,
+      delay: 900,
+      duration: 800,
+      ease: 'Cubic.easeOut',
+    });
+
+    // 8. 1.8초 뒤 재시작 안내 문구 활성화 (사망 화면처럼 연타로 인한 즉시 스킵 방지)
+    this.time.delayedCall(1800, () => {
+      const promptText = this.add
+        .text(cx, cy + 175, '— CLICK OR PRESS [SPACE] TO BEGIN A NEW CYCLE —', {
+          fontFamily: 'Georgia, serif',
+          fontSize: '16px',
+          color: '#fde047',
+          stroke: '#000000',
+          strokeThickness: 4,
+        })
+        .setOrigin(0.5)
+        .setScrollFactor(0)
+        .setDepth(302)
+        .setAlpha(0);
+
+      this.tweens.add({
+        targets: promptText,
+        alpha: 1,
+        duration: 600,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+
+      const restartGame = () => {
+        this.scene.restart();
+      };
+
+      this.input.once('pointerdown', restartGame);
+      this.input.keyboard.once('keydown-SPACE', restartGame);
     });
   }
 
