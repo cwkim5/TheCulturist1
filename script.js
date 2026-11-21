@@ -401,8 +401,8 @@ class MainScene extends Phaser.Scene {
       isDashing: false,
       canDash: true,
       dashCooldown: 800, // 대시 쿨타임 (0.8초)
-      dashDuration: 180, // 대시 지속 시간 (0.18초 무적 질주)
-      dashSpeed: 2600, // 대시 순간 속도
+      dashDuration: 100, // 대시 지속 시간 (0.18초 무적 질주)
+      dashSpeed: 800, // 대시 순간 속도
       emptySlashes: 0,
       comboStep: 0,
       comboTimer: null,
@@ -727,10 +727,10 @@ class MainScene extends Phaser.Scene {
       dashAngle = Math.atan2(vy, vx);
     }
 
-    // 2. 극대화된 속도 적용 (2600!)
+    // 2. 극대화된 속도 적용
     this.player.setVelocity(
-      Math.cos(dashAngle) * 2600,
-      Math.sin(dashAngle) * 2600
+      Math.cos(dashAngle) * this.state.dashSpeed,
+      Math.sin(dashAngle) * this.state.dashSpeed
     );
     this.player.setAlpha(0.7);
 
@@ -902,7 +902,7 @@ class MainScene extends Phaser.Scene {
     }
 
     // 5. 대시 속도 종료 및 초기화 (0.12초로 아주 기민하게 설정)
-    this.time.delayedCall(120, () => {
+    this.time.delayedCall(this.state.dashDuration, () => {
       this.state.isDashing = false;
       this.player.setAlpha(1.0);
       trailTimer.destroy();
@@ -1441,7 +1441,7 @@ class MainScene extends Phaser.Scene {
   handlePlayerMovement() {
     this.player.setRotation(this.getAimAngle());
 
-    if (!this.player.isLunging) {
+    if (!this.player.isLunging && !this.state.isDashing) {
       let vx = 0,
         vy = 0;
       // 1. 폼별 이동 속도 배율 사전(Dictionary) 정의
@@ -2149,7 +2149,8 @@ class MainScene extends Phaser.Scene {
 
   // hitAngle의 기본값을 null로 설정 (null이면 넉백 없음!)
   damageEnemy(enemy, baseDamage, hitAngle = null, isCounterHit = false) {
-    if (!enemy || !enemy.active) return;
+    if (!enemy || !enemy.active || enemy.isInvulnerableBoss) return;
+    
 
     let finalDmg =
       baseDamage *
@@ -4790,7 +4791,7 @@ class MainScene extends Phaser.Scene {
       .setDepth(8)
       .setCollideWorldBounds(true);
     enemy.hp = GAME_CONFIG.RANGED_ENEMY.HP;
-    enemy.baseSpeed = this.state.isAct1Escalated ? GAME_CONFIG.ENEMY.SPEED * 1.35 : GAME_CONFIG.ENEMY.SPEED;
+    enemy.baseSpeed = this.state.isAct1Escalated ? GAME_CONFIG.RANGED_ENEMY.SPEED * 1.35 : GAME_CONFIG.RANGED_ENEMY.SPEED;
     enemy.isRanged = true; // 원거리 적 구분용 플래그
     enemy.isWindingUp = false;
     enemy.isAttacking = false;
@@ -4981,6 +4982,10 @@ class MainScene extends Phaser.Scene {
       if (this.state.isParrying) {
         this.registerParrySuccess();
         if (this.state.form === 'DAGON') this.triggerDagonWave();
+
+        if (!bolt || !bolt.active || !bolt.body) return;
+
+        bolt.isDeflected = true;
         // ★ 니알라토텝으로 보스 돌진 패링 시 보스 등 뒤 안전거리로 도약 & 누적된 낙인 즉시 폭발!
         if (this.state.form === 'NYARLATHOTEP') {
           this.triggerNyarlaBlink(this.boss, false);
@@ -6454,11 +6459,10 @@ class MainScene extends Phaser.Scene {
     this.state.isGameOver = true;
 
     // 1. 모든 스폰 루프 정지 및 잔존 적/투사체 일괄 정리
-    if (this.act1Timer) this.act1Timer.remove();
-    if (this.act1RangedTimer) this.act1RangedTimer.remove();
-    if (this.act2Timer) this.act2Timer.remove();
-    if (this.act2RangedTimer) this.act2RangedTimer.remove();
-    if (this.chaosDamageTimer) this.chaosDamageTimer.remove();
+    if (this.crusaderTimer) this.crusaderTimer.remove();
+    if (this.inquisitorTimer) this.inquisitorTimer.remove();
+    if (this.deepOneTimer) this.deepOneTimer.remove();
+    if (this.voidCallerTimer) this.voidCallerTimer.remove();
 
     this.projectiles.clear(true, true);
     this.enemies.getChildren().forEach((e) => {
@@ -6565,7 +6569,7 @@ class MainScene extends Phaser.Scene {
     const statsSummary = [
       `ASCENDED FORM :  ${this.state.form}${tierSuffix}`,
       `TOTAL SACRIFICES :  ${this.state.kills} KILLS`,
-      `PARRIES EXECUTED :  ${this.state.parryCount || 0}`,
+      `PARRIES EXECUTED :  ${this.state.successfulParries || 0}`,
       `REMAINING VITALITY :  ${Math.max(0, Math.floor(this.state.hp))} / ${this.state.maxHp}`,
     ].join('\n\n');
 
