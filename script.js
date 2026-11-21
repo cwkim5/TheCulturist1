@@ -45,7 +45,7 @@ class PreloadScene extends Phaser.Scene {
   create() {
     const { width, height } = this.scale;
     this.createProceduralTextures();
-    
+
 
     const quote = this.add
       .text(width / 2, height / 2, '“Fear is the greatest motivation.”', {
@@ -186,6 +186,39 @@ class PreloadScene extends Phaser.Scene {
       .fillCircle(32, 32, 12)
       .generateTexture('boss', 64, 64)
       .clear();
+
+    // [Tainted Act 2 텍스처 1] 잿빛 망령 (Ashen Hound) - 36x36
+    const ashGfx = this.make.graphics({ x: 0, y: 0, add: false });
+    ashGfx.fillStyle(0x3f3f46, 1); // 잿빛 몸체
+    ashGfx.lineStyle(2, 0x94a3b8, 0.9); // 창백한 뼈 테두리
+    ashGfx.beginPath();
+    ashGfx.moveTo(33, 18); // 날카로운 전방 주둥이
+    ashGfx.lineTo(14, 5);
+    ashGfx.lineTo(4, 14);
+    ashGfx.lineTo(10, 18);
+    ashGfx.lineTo(4, 22);
+    ashGfx.lineTo(14, 31);
+    ashGfx.closePath();
+    ashGfx.fillPath();
+    ashGfx.strokePath();
+    ashGfx.fillStyle(0xff003c, 1); // 붉은 안광
+    ashGfx.fillCircle(21, 14, 2);
+    ashGfx.fillCircle(21, 22, 2);
+    ashGfx.generateTexture('ashen_hound', 36, 36);
+    ashGfx.destroy();
+
+    // [Tainted Act 2 텍스처 2] 블러드 스나이퍼 (Blood Sniper) - 36x36
+    const snpGfx = this.make.graphics({ x: 0, y: 0, add: false });
+    snpGfx.fillStyle(0x18181b, 1); // 어두운 잿빛 후드
+    snpGfx.lineStyle(2, 0xdc2626, 0.9); // 선혈 테두리
+    snpGfx.fillCircle(14, 18, 11);
+    snpGfx.strokeCircle(14, 18, 11);
+    snpGfx.fillStyle(0x94a3b8, 1); // 길게 뻗은 총열/지팡이
+    snpGfx.fillRect(16, 16, 19, 4);
+    snpGfx.fillStyle(0xff003c, 1); // 총구 끝 붉은 조준 코어
+    snpGfx.fillCircle(34, 18, 2.5);
+    snpGfx.generateTexture('blood_sniper', 36, 36);
+    snpGfx.destroy();
 
     // ==========================================
     // [Act 2 텍스처 1] 딥 원 (Deep One) - 36x36
@@ -434,7 +467,7 @@ class MainScene extends Phaser.Scene {
         this.startAct2Phase(px, py);
       },
       150: () => this.triggerWaveEscalation2(), // ★ 150킬: 공허의 침식 & 2막 적 강화!
-      160: () => this.triggerTier2Evolution('BETA'), // ★ 160킬: 제단 없이 즉시 베타(-β) 초월 각성!
+      160: () => this.triggerTier2Evolution(this.state.isTaintedAct2 ? 'GAMMA' : 'BETA'),
       200: () => this.spawnGreatDeepOne(), // ★ 200킬: 그레이트 딥 원 강림!
     };
 
@@ -673,7 +706,7 @@ class MainScene extends Phaser.Scene {
 
     this.keys = this.input.keyboard.addKeys('W,A,S,D');
     //this.input.on('pointerdown', (p) => p.rightButtonDown() ? this.performParry() : this.performDaggerSlash() );
-    
+
     this.input.on('pointerdown', (p) => {
       if (p.rightButtonDown() || this.state.form === 'DAGON') {
         this.performParry();
@@ -852,7 +885,7 @@ class MainScene extends Phaser.Scene {
         });
       }
     }
-    
+
     // ★ [크툴루 전용 대시 피니셔] 80킬 알파(-α) 각성 시에만 스페이스바 대시 시 '심해의 아가리' 폭발 해금!
     if (this.state.form === 'CTHULHU' && this.state.isExAwakened) {
       const isBeta = this.state.awakeningPath === 'BETA';
@@ -1059,32 +1092,6 @@ class MainScene extends Phaser.Scene {
       // 조건 미달 시 기존대로 무신앙자(광전사)로 강제 변이
       this.awakenFaithless();
 
-      this.cameras.main.flash(500, 255, 0, 0);
-      const alertText = this.add
-        .text(
-          this.cameras.main.centerX,
-          this.cameras.main.centerY - 50,
-          'THE FAITHLESS',
-          {
-            fontFamily: 'monospace',
-            fontSize: '32px',
-            color: '#ff0000',
-            stroke: '#000000',
-            strokeThickness: 5,
-          }
-        )
-        .setOrigin(0.5)
-        .setScrollFactor(0)
-        .setDepth(100);
-
-      this.tweens.add({
-        targets: alertText,
-        y: alertText.y - 40,
-        alpha: 0,
-        duration: 3000,
-        ease: 'Power2',
-        onComplete: () => alertText.destroy(),
-      });
     }
   }
 
@@ -1445,21 +1452,21 @@ class MainScene extends Phaser.Scene {
       let vx = 0,
         vy = 0;
       // 1. 폼별 이동 속도 배율 사전(Dictionary) 정의
-  const speedMultipliers = {
-    'THE FAITHLESS': 1.35,  // 무신앙자는 가장 빠른 1.35배
-    'NYARLATHOTEP': 1.25,   // 예: 기동성이 중요한 폼은 1.25배
-    'HASTUR': 1.15,         // 예: 밸런스형 폼은 1.15배
-    'DAGON': 1.10,          // 예: 묵직한 폼도 최소 1.1배 상승
-    'CTHUGHA': 1.15,
-    // ... 추가되는 폼 이름과 배율을 여기에 계속 적어주면 됩니다.
-  };
+      const speedMultipliers = {
+        'THE FAITHLESS': 1.35,  // 무신앙자는 가장 빠른 1.35배
+        'NYARLATHOTEP': 1.25,   // 예: 기동성이 중요한 폼은 1.25배
+        'HASTUR': 1.15,         // 예: 밸런스형 폼은 1.15배
+        'DAGON': 1.10,          // 예: 묵직한 폼도 최소 1.1배 상승
+        'CTHUGHA': 1.15,
+        // ... 추가되는 폼 이름과 배율을 여기에 계속 적어주면 됩니다.
+      };
 
-  // 2. 현재 폼에 해당하는 배율을 찾고, 목록에 없으면 기본 폼으로 간주해 1.0배 적용
-  // 만약 진화 전 폼 이름이 'MORTAL'이나 'NORMAL'이라면 1.0이 들어갑니다.
-  const multiplier = speedMultipliers[this.state.form] || 1.0; 
-  
-  const spd = GAME_CONFIG.PLAYER.SPEED * multiplier;
-  
+      // 2. 현재 폼에 해당하는 배율을 찾고, 목록에 없으면 기본 폼으로 간주해 1.0배 적용
+      // 만약 진화 전 폼 이름이 'MORTAL'이나 'NORMAL'이라면 1.0이 들어갑니다.
+      const multiplier = speedMultipliers[this.state.form] || 1.0;
+
+      const spd = GAME_CONFIG.PLAYER.SPEED * multiplier;
+
       if (this.keys.A.isDown) vx = -spd;
       else if (this.keys.D.isDown) vx = spd;
       if (this.keys.W.isDown) vy = -spd;
@@ -2150,7 +2157,7 @@ class MainScene extends Phaser.Scene {
   // hitAngle의 기본값을 null로 설정 (null이면 넉백 없음!)
   damageEnemy(enemy, baseDamage, hitAngle = null, isCounterHit = false) {
     if (!enemy || !enemy.active || enemy.isInvulnerableBoss) return;
-    
+
 
     let finalDmg =
       baseDamage *
@@ -2230,26 +2237,26 @@ class MainScene extends Phaser.Scene {
     const cam = this.cameras.main;
     // 0x3a0000: 묵직한 검붉은색 (원하는 피 색깔 헥사코드로 변경 가능)
     const bloodFlash = this.add.rectangle(cam.centerX, cam.centerY, cam.width, cam.height, 0xffffff);
-    
+
     bloodFlash.setScrollFactor(0); // 플레이어가 이동해도 화면에 고정되도록 설정
     bloodFlash.setDepth(9999);     // 다른 모든 오브젝트 위에 덮기
     bloodFlash.alpha = 0.5;        // 핵심: 초기 투명도를 40%로 제한해서 암전 느낌 방지 (조절 가능)
 
     // 플래시가 서서히 사라지는 연출 (Tween)
     this.tweens.add({
-        targets: bloodFlash,
-        alpha: 0,
-        duration: 120, // 0.12초 만에 스르륵 빠짐
-        ease: 'Quad.easeOut',
-        onComplete: () => bloodFlash.destroy() // 연출 끝나면 찌꺼기 없이 삭제
+      targets: bloodFlash,
+      alpha: 0,
+      duration: 120, // 0.12초 만에 스르륵 빠짐
+      ease: 'Quad.easeOut',
+      onComplete: () => bloodFlash.destroy() // 연출 끝나면 찌꺼기 없이 삭제
     });
-    
+
     // 3. 역경직 해제
     this.time.delayedCall(80, () => {
-        this.physics.world.isPaused = false;
+      this.physics.world.isPaused = false;
     });
-   
-    
+
+
 
     if (this.state.form === 'HASTUR') {
       const counterRadius = 115;
@@ -2522,18 +2529,17 @@ class MainScene extends Phaser.Scene {
         )
         .setColor('#38bdf8');
     } else if (tierType === 'GAMMA') {
-      // [γ : 광기와 파멸] 최대 체력 42%로 대폭 삭감 + 배율 2배 이상 폭증 + 피구슬 35%로 반감
-      this.state.maxHp = Math.max(40, Math.floor(this.state.maxHp * 0.42));
+      // ★ 입장 시 이미 체력 패널티를 치렀으므로, 여기서는 체력을 깎지 않고 풀피 회복 + 화력 폭증만 부여
       this.state.hp = this.state.maxHp;
       this.state.dmgMult = st.gammaMult;
-      this.state.orbDropRate = 0.35; // 피구슬 스폰율 35%로 제한
+      this.state.orbDropRate = 0.35; // 피구슬 스폰율 35% 유지
 
       this.cameras.main.flash(750, 220, 38, 38);
       this.cameras.main.shake(700, 0.035);
 
       this.hudGuide
         .setText(
-          `⚠️ [γ-각성: 광기 폭주] 생명력을 제물로 바쳐 파멸적인 화력을 얻었습니다! (데미지 x${st.gammaMult})`
+          `⚠️ [γ-Awakening: Tainted Madness] Ruinous power unleashed! (DAMAGE x${st.gammaMult})`
         )
         .setColor('#f43f5e');
     }
@@ -2756,7 +2762,7 @@ class MainScene extends Phaser.Scene {
       this.spawnMiniYellowSign(cx, cy, 52, 28);
     });
   }
-  
+
 
   // ★ [하스터 전용 헬퍼] 연쇄 번개 착탄 지점에 소형 황색 인장 마법진 생성 & 광역 감전 타격
   spawnMiniYellowSign(x, y, radius, damage) {
@@ -3279,8 +3285,8 @@ class MainScene extends Phaser.Scene {
   triggerCthughaRing(centerEnemy) {
     if (this.state.isAct2 && this.state.form === 'CTHUGHA') this.state.gammaProgress++;
     if (!centerEnemy || !centerEnemy.active) return;
-    
-    
+
+
 
     // 연쇄 폭발 시 프레임 드랍 및 무한 루프 방지를 위한 0.12초 내부 쿨타임
     const now = this.time.now;
@@ -3316,10 +3322,10 @@ class MainScene extends Phaser.Scene {
     targets.forEach((e) => {
       if (!e || !e.active || e === centerEnemy) return;
       const d = Phaser.Math.Distance.Between(ex, ey, e.x, e.y);
-      
+
       if (d <= ringRadius + (e.isBoss ? 24 : 0)) {
         // ★ 거리가 2px 미만(동일 좌표)이면 0도(오른쪽) 버그가 나므로 플레이어 기준 각도로 대체!
-        const pushAngle = d > 2 
+        const pushAngle = d > 2
           ? Phaser.Math.Angle.Between(ex, ey, e.x, e.y)
           : Phaser.Math.Angle.Between(this.player.x, this.player.y, e.x, e.y);
 
@@ -3550,22 +3556,8 @@ class MainScene extends Phaser.Scene {
     waterSplash.explode(40);
     this.time.delayedCall(1000, () => waterSplash.destroy());
 
-    // ❌ 기존 999 즉사 데미지 삭제 -> ✅ 심해의 수압으로 적들을 강하게 밀쳐내기만 함 (킬 카운트 상승 방지)
-    const currentEnemies = [...this.enemies.getChildren()];
-    currentEnemies.forEach((enemy) => {
-      if (!enemy.active) return;
-      const blastAngle = Phaser.Math.Angle.Between(
-        this.player.x,
-        this.player.y,
-        enemy.x,
-        enemy.y
-      );
-      enemy.setVelocity(Math.cos(blastAngle) * 500, Math.sin(blastAngle) * 500);
-      enemy.isKnockedBack = true;
-      this.time.delayedCall(250, () => {
-        if (enemy.active) enemy.isKnockedBack = false;
-      });
-    });
+
+    this.playDagonCutscene();
 
     this.hudGuide
       .setText(
@@ -3575,6 +3567,87 @@ class MainScene extends Phaser.Scene {
 
     this.restoreFormTint();
     this.updateHUD();
+  }
+
+  playDagonCutscene() {
+    const px = this.player.x;
+    const py = this.player.y;
+    this.state.isInvulnerable = true;
+    this.physics.world.timeScale = 4.0;
+
+    // 1. 심해 잠수 암전 오버레이
+    const abyssVeil = this.add
+      .rectangle(400, 300, 800, 600, 0x02131f, 0.8)
+      .setScrollFactor(0)
+      .setDepth(180)
+      .setAlpha(0);
+
+    this.tweens.add({
+      targets: abyssVeil,
+      alpha: 1,
+      duration: 250,
+      yoyo: true,
+      hold: 550,
+      onComplete: () => abyssVeil.destroy(),
+    });
+
+    // 2. 바깥에서 플레이어 중심으로 빨려 들어오는 3중 수압 링 (패링 에너지 응축)
+    for (let i = 0; i < 3; i++) {
+      this.time.delayedCall(i * 110, () => {
+        const pressureRing = this.add
+          .circle(px, py, 220, 0x0ea5e9, 0)
+          .setStrokeStyle(4 - i, 0x38bdf8, 0.9)
+          .setBlendMode(Phaser.BlendModes.ADD)
+          .setDepth(185);
+
+        this.tweens.add({
+          targets: pressureRing,
+          scale: 0.1,
+          alpha: 0,
+          duration: 380,
+          ease: 'Cubic.easeIn',
+          onComplete: () => pressureRing.destroy(),
+        });
+      });
+    }
+
+    // 3. 0.55초 뒤 심해 해일 폭발 및 각성 완료
+    this.time.delayedCall(550, () => {
+      this.physics.world.timeScale = 1.0;
+      this.state.isInvulnerable = false;
+      this.cameras.main.flash(650, 14, 165, 233);
+      this.cameras.main.shake(600, 0.03);
+
+      // 이중 해일 링 방출
+      [0x0ea5e9, 0x7dd3fc].forEach((col, idx) => {
+        const tidalWave = this.add
+          .circle(px, py, 20, col, 0.35)
+          .setStrokeStyle(5 - idx * 2, 0xffffff, 0.9)
+          .setBlendMode(Phaser.BlendModes.ADD)
+          .setDepth(190);
+
+        this.tweens.add({
+          targets: tidalWave,
+          scale: 15 + idx * 4,
+          alpha: 0,
+          duration: 600 + idx * 120,
+          ease: 'Cubic.easeOut',
+          onComplete: () => tidalWave.destroy(),
+        });
+      });
+
+      // 주변 적 강제 넉백 (기존 로직)
+      this.enemies.getChildren().forEach((e) => {
+        if (!e.active) return;
+        const a = Phaser.Math.Angle.Between(px, py, e.x, e.y);
+        e.setVelocity(Math.cos(a) * 550, Math.sin(a) * 550);
+        e.isKnockedBack = true;
+        this.time.delayedCall(250, () => { if (e.active) e.isKnockedBack = false; });
+      });
+
+      // 영문 선언 배너
+      this.showAwakeningBanner('BARRIER OF THE ABYSS\n[ Dagon ]', '#38bdf8', '#082f49');
+    });
   }
 
   // 5. 심연의 대공 - 노덴스 각성 (히든)
@@ -3590,24 +3663,11 @@ class MainScene extends Phaser.Scene {
     this.cameras.main.flash(800, 240, 248, 255);
     this.cameras.main.shake(800, 0.03);
 
-    // ❌ 기존 999 즉사 데미지 삭제 -> ✅ 차원 반동으로 주변 적들을 밀쳐내기만 함
-    const currentEnemies = [...this.enemies.getChildren()];
-    currentEnemies.forEach((enemy) => {
-      if (!enemy.active) return;
-      const blastAngle = Phaser.Math.Angle.Between(
-        this.player.x,
-        this.player.y,
-        enemy.x,
-        enemy.y
-      );
-      enemy.setVelocity(Math.cos(blastAngle) * 500, Math.sin(blastAngle) * 500);
-      enemy.isKnockedBack = true;
-      this.time.delayedCall(250, () => {
-        if (enemy.active) enemy.isKnockedBack = false;
-      });
-    });
 
     this.state.canSlash = true;
+
+
+    this.playNodensCutscene();
     this.hudGuide
       .setText(
         '★ [Elder God: Nodens] Hunter of the Abyss. Unlocks the triple-stage spatial slash combo.'
@@ -3616,6 +3676,94 @@ class MainScene extends Phaser.Scene {
 
     this.restoreFormTint();
     this.updateHUD();
+  }
+
+  playNodensCutscene() {
+    const px = this.player.x;
+    const py = this.player.y;
+    this.state.isInvulnerable = true;
+    this.physics.world.timeScale = 4.0;
+
+    // 1. 차가운 심연 암전
+    const voidVeil = this.add
+      .rectangle(400, 300, 800, 600, 0x050a14, 0.88)
+      .setScrollFactor(0)
+      .setDepth(180)
+      .setAlpha(0);
+
+    this.tweens.add({
+      targets: voidVeil,
+      alpha: 1,
+      duration: 200,
+      yoyo: true,
+      hold: 600,
+      onComplete: () => voidVeil.destroy(),
+    });
+
+    // 2. 화면 전체를 가르는 고속 차원 참격 6연타 (UI 좌표계 기준)
+    for (let i = 0; i < 6; i++) {
+      this.time.delayedCall(i * 65, () => {
+        const angle = Phaser.Math.FloatBetween(-Math.PI, Math.PI);
+        const sx = Phaser.Math.Between(180, 620);
+        const sy = Phaser.Math.Between(140, 460);
+
+        const slashLine = this.add
+          .rectangle(sx, sy, 900, 4, i % 2 === 0 ? 0x38bdf8 : 0xffffff, 1)
+          .setRotation(angle)
+          .setScrollFactor(0)
+          .setBlendMode(Phaser.BlendModes.ADD)
+          .setDepth(186)
+          .setScale(0, 1);
+
+        this.tweens.add({
+          targets: slashLine,
+          scaleX: 1,
+          scaleY: 0.1,
+          alpha: 0,
+          duration: 320,
+          ease: 'Cubic.easeOut',
+          onComplete: () => slashLine.destroy(),
+        });
+      });
+    }
+
+    // 3. 0.55초 뒤 플레이어 중심 거대 십자(+) 차원 폭발
+    this.time.delayedCall(550, () => {
+      this.physics.world.timeScale = 1.0;
+      this.state.isInvulnerable = false;
+      this.cameras.main.flash(700, 224, 242, 254);
+      this.cameras.main.shake(650, 0.035);
+
+      // 십자(+) 안광 폭발 연출
+      [0, Math.PI / 2].forEach((rot) => {
+        const cross = this.add
+          .rectangle(px, py, 520, 14, 0xe0f2fe, 0.95)
+          .setRotation(rot)
+          .setBlendMode(Phaser.BlendModes.ADD)
+          .setDepth(190);
+
+        this.tweens.add({
+          targets: cross,
+          scaleX: 1.5,
+          scaleY: 0,
+          alpha: 0,
+          duration: 450,
+          ease: 'Cubic.easeOut',
+          onComplete: () => cross.destroy(),
+        });
+      });
+
+      // 주변 적 넉백
+      this.enemies.getChildren().forEach((e) => {
+        if (!e.active) return;
+        const a = Phaser.Math.Angle.Between(px, py, e.x, e.y);
+        e.setVelocity(Math.cos(a) * 550, Math.sin(a) * 550);
+        e.isKnockedBack = true;
+        this.time.delayedCall(250, () => { if (e.active) e.isKnockedBack = false; });
+      });
+
+      this.showAwakeningBanner('HUNTER OF THE ABYSS\n[ Nodens ]', '#e0f2fe', '#0f172a');
+    });
   }
 
   // 6. 광전사 - 무신앙자 각성 (히든 40킬)
@@ -3628,11 +3776,10 @@ class MainScene extends Phaser.Scene {
     this.state.maxHp += 20;
     this.state.hp = this.state.maxHp;
 
-    this.cameras.main.flash(800, 185, 28, 28);
-    this.cameras.main.shake(500, 0.04);
-
     this.redEyeEmitter.emitting = true;
     this.state.canSlash = true;
+
+    this.playFaithlessCutscene();
 
     this.hudGuide
       .setText(
@@ -3642,6 +3789,120 @@ class MainScene extends Phaser.Scene {
 
     this.restoreFormTint();
     this.updateHUD();
+  }
+
+  playFaithlessCutscene() {
+    const px = this.player.x;
+    const py = this.player.y;
+    this.state.isInvulnerable = true;
+    this.physics.world.timeScale = 4.0;
+
+    // 1. 검붉은 살기(Bloodlust) 암전 오버레이
+    const bloodVeil = this.add
+      .rectangle(400, 300, 800, 600, 0x1a0004, 0.85)
+      .setScrollFactor(0)
+      .setDepth(180)
+      .setAlpha(0);
+
+    this.tweens.add({
+      targets: bloodVeil,
+      alpha: 1,
+      duration: 200,
+      yoyo: true,
+      hold: 550,
+      onComplete: () => bloodVeil.destroy(),
+    });
+
+    // 2. 화면을 거칠게 찢어발기는 핏빛 난도질 (5연속)
+    for (let i = 0; i < 5; i++) {
+      this.time.delayedCall(i * 80, () => {
+        const rx = Phaser.Math.Between(220, 580);
+        const ry = Phaser.Math.Between(180, 420);
+        const rot = Phaser.Math.FloatBetween(-Math.PI, Math.PI);
+
+        // 두꺼운 검붉은 외곽 + 날카로운 선혈 코어
+        const gash = this.add
+          .ellipse(rx, ry, 420, 26, 0x991b1b, 0.95)
+          .setStrokeStyle(3, 0xff003c, 1)
+          .setRotation(rot)
+          .setScrollFactor(0)
+          .setBlendMode(Phaser.BlendModes.ADD)
+          .setDepth(186)
+          .setScale(0.1, 1);
+
+        this.cameras.main.shake(70, 0.01);
+
+        this.tweens.add({
+          targets: gash,
+          scaleX: 1.4,
+          scaleY: 0.15,
+          alpha: 0,
+          duration: 260,
+          ease: 'Cubic.easeOut',
+          onComplete: () => gash.destroy(),
+        });
+      });
+    }
+
+    // 3. 0.55초 뒤 플레이어 중심 거대 X자 혈폭 + 안광 점화
+    this.time.delayedCall(550, () => {
+      this.physics.world.timeScale = 1.0;
+      this.state.isInvulnerable = false;
+      this.cameras.main.flash(650, 185, 28, 28);
+      this.cameras.main.shake(700, 0.04);
+
+      // 대량 혈흔 파티클 폭발
+      if (this.bloodEmitter) {
+        this.bloodEmitter.explode(110, px, py);
+      }
+
+      // 플레이어 중심 거대 X자(45도, -45도) 핏빛 참격
+      [Math.PI / 4, -Math.PI / 4].forEach((rot) => {
+        const xSlash = this.add
+          .ellipse(px, py, 360, 28, 0xef4444, 0.95)
+          .setRotation(rot)
+          .setBlendMode(Phaser.BlendModes.ADD)
+          .setDepth(190);
+
+        this.tweens.add({
+          targets: xSlash,
+          scaleX: 1.6,
+          scaleY: 0.1,
+          alpha: 0,
+          duration: 420,
+          ease: 'Cubic.easeOut',
+          onComplete: () => xSlash.destroy(),
+        });
+      });
+
+      // 핏빛 충격파 링
+      const bloodNova = this.add
+        .circle(px, py, 24, 0x991b1b, 0.45)
+        .setStrokeStyle(5, 0xef4444, 1)
+        .setBlendMode(Phaser.BlendModes.ADD)
+        .setDepth(189);
+
+      this.tweens.add({
+        targets: bloodNova,
+        scale: 14,
+        alpha: 0,
+        duration: 550,
+        ease: 'Cubic.easeOut',
+        onComplete: () => bloodNova.destroy(),
+      });
+
+      // 주변 적 강제 넉백
+      this.enemies.getChildren().forEach((e) => {
+        if (!e.active) return;
+        const a = Phaser.Math.Angle.Between(px, py, e.x, e.y);
+        e.setVelocity(Math.cos(a) * 580, Math.sin(a) * 580);
+        e.isKnockedBack = true;
+        this.time.delayedCall(250, () => { if (e.active) e.isKnockedBack = false; });
+      });
+
+      // 영문 선언 배너
+      this.showAwakeningBanner('PURE CARNAGE\n[ The Faithless ]', '#ef4444', '#1a0004');
+    });
   }
 
 
@@ -3713,6 +3974,32 @@ class MainScene extends Phaser.Scene {
       .setColor('#e2e8f0');
 
     this.updateHUD();
+  }
+
+  showAwakeningBanner(text, color, strokeColor) {
+    const banner = this.add
+      .text(this.cameras.main.centerX, this.cameras.main.centerY - 70, text, {
+        fontFamily: 'Georgia, serif',
+        fontSize: '26px',
+        color: color,
+        align: 'center',
+        fontStyle: 'bold',
+        stroke: strokeColor,
+        strokeThickness: 6,
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(200);
+
+    this.tweens.add({
+      targets: banner,
+      y: banner.y - 30,
+      alpha: 0,
+      delay: 1600,
+      duration: 1000,
+      ease: 'Power2',
+      onComplete: () => banner.destroy(),
+    });
   }
 
   registerParrySuccess() {
@@ -4824,14 +5111,14 @@ class MainScene extends Phaser.Scene {
     deepOne.body.setCircle(14, 4, 4);
 
     const isEsc = this.state.isAct2Escalated;
-    
+
     // ★ 중복 할당 정리 및 체력 상향 (기존 60/90 -> 95/140)
     deepOne.hp = isEsc ? 140 : 95;
     deepOne.baseSpeed = isEsc ? 195 : 160;
     deepOne.isDeepOne = true;
     deepOne.isKnockbackImmune = true; // ★ 넉백 면역 플래그
     deepOne.tick = Phaser.Math.Between(0, 100);
-    
+
     if (isEsc) deepOne.setTint(0xc084fc);
   }
 
@@ -4871,8 +5158,47 @@ class MainScene extends Phaser.Scene {
     if (isEsc) caller.setScale(1.15);     // 덩치 15% 확대
   }
 
+  spawnAshenHound() {
+    if (this.state.isGameOver || this.physics.world.isPaused) return;
+    const edge = Phaser.Math.Between(0, 3);
+    const sx = edge === 1 ? 1360 : edge === 3 ? 40 : Phaser.Math.Between(40, 1360);
+    const sy = edge === 0 ? 40 : edge === 2 ? 1360 : Phaser.Math.Between(40, 1360);
+
+    const hound = this.enemies
+      .create(sx, sy, 'ashen_hound')
+      .setDepth(8)
+      .setCollideWorldBounds(true);
+    hound.body.setCircle(13, 5, 5);
+
+    const isEsc = this.state.isAct2Escalated;
+    hound.hp = isEsc ? 120 : 85;
+    hound.baseSpeed = isEsc ? 215 : 180; // 딥 원보다 빠른 직선 추격
+    hound.isAshenHound = true;
+    hound.isTaintedEnemy = true;
+  }
+
+  spawnBloodSniper() {
+    if (this.state.isGameOver || this.physics.world.isPaused) return;
+    const a = Phaser.Math.FloatBetween(0, Math.PI * 2);
+    const sx = Phaser.Math.Clamp(this.player.x + Math.cos(a) * 520, 50, 1350);
+    const sy = Phaser.Math.Clamp(this.player.y + Math.sin(a) * 520, 50, 1350);
+
+    const sniper = this.enemies
+      .create(sx, sy, 'blood_sniper')
+      .setDepth(8)
+      .setCollideWorldBounds(true);
+    sniper.body.setCircle(13, 5, 5);
+
+    const isEsc = this.state.isAct2Escalated;
+    sniper.hp = isEsc ? 130 : 95;
+    sniper.baseSpeed = isEsc ? 75 : 55;
+    sniper.isBloodSniper = true;
+    sniper.isRanged = true;
+    sniper.isTaintedEnemy = true;
+  }
+
   checkWaveAcceleration() {
-    if (this.state. isBossSpawned || this.state.isAct2Waiting || this.state.isGameOver) return;
+    if (this.state.isBossSpawned || this.state.isAct2Waiting || this.state.isGameOver) return;
     const activeEnemies = this.enemies.getChildren().filter(e => e.active && !e.isBoss).length;
 
     if (activeEnemies <= 1) {
@@ -4915,19 +5241,31 @@ class MainScene extends Phaser.Scene {
   initAct2Loop() {
     this.state.isAct2 = true;
 
-    // 딥 원(근접) 고속 스폰 (0.9초 주기)
-    this.deepOneTimer = this.time.addEvent({
-      delay: 900,
-      loop: true,
-      callback: () => this.spawnDeepOne(),
-    });
-
-    // 공허의 사역마(원거리) 스폰 (2.8초 주기)
-    this.voidCallerTimer = this.time.addEvent({
-      delay: 2800,
-      loop: true,
-      callback: () => this.spawnVoidCaller(),
-    });
+    if (this.state.isTaintedAct2) {
+      // ★ 사후 황무지 전용 몹 스폰 루프
+      this.deepOneTimer = this.time.addEvent({
+        delay: 850,
+        loop: true,
+        callback: () => this.spawnAshenHound(), // 신규 근접 몹
+      });
+      this.voidCallerTimer = this.time.addEvent({
+        delay: 2600,
+        loop: true,
+        callback: () => this.spawnBloodSniper(), // 신규 원거리 몹
+      });
+    } else {
+      // 기존 심해 르뤼에 루프
+      this.deepOneTimer = this.time.addEvent({
+        delay: 900,
+        loop: true,
+        callback: () => this.spawnDeepOne(),
+      });
+      this.voidCallerTimer = this.time.addEvent({
+        delay: 2800,
+        loop: true,
+        callback: () => this.spawnVoidCaller(),
+      });
+    }
   }
 
   spawnBoss() {
@@ -5990,6 +6328,32 @@ class MainScene extends Phaser.Scene {
       // [1] 원거리 적 (Act 1 사제 & Act 2 공허의 사역마)
       // ==========================================
       if (e.isRanged) {
+        if (e.isBloodSniper) {
+          // ★ 블러드 스나이퍼: 0.7초간 붉은 레이저 조준선 표시 후 초고속 단발 발사
+          const lockAngle = Phaser.Math.Angle.Between(e.x, e.y, this.player.x, this.player.y);
+          e.setRotation(lockAngle);
+          const laser = this.add
+            .graphics()
+            .setDepth(4)
+            .lineStyle(2, 0xff003c, 0.7)
+            .lineBetween(e.x, e.y, e.x + Math.cos(lockAngle) * 480, e.y + Math.sin(lockAngle) * 480);
+
+          this.time.delayedCall(700, () => {
+            laser.destroy();
+            if (!e.active || !e.isWindingUp) return;
+            e.isWindingUp = false;
+
+            const bolt = this.projectiles.create(e.x, e.y, 'holy_bolt').setDepth(9);
+            bolt.setTint(0xff003c).setScale(1.3);
+            bolt.setVelocity(Math.cos(lockAngle) * 520, Math.sin(lockAngle) * 520);
+            this.time.delayedCall(2500, () => { if (bolt.active) bolt.destroy(); });
+
+            e.isAttacking = true;
+            this.time.delayedCall(1600, () => { if (e.active) e.isAttacking = false; });
+          });
+          return;
+        }
+
         if (
           dist <= GAME_CONFIG.RANGED_ENEMY.ATTACK_RANGE &&
           !e.isWindingUp &&
@@ -6285,31 +6649,14 @@ class MainScene extends Phaser.Scene {
       return;
     }
 
-    const bossOrbCount = Phaser.Math.Between(60, 80);
-    for (let i = 0; i < bossOrbCount; i++) {
-      const orb = this.bloodOrbs
-        .create(bx, by, 'blood_orb')
-        .setBlendMode(Phaser.BlendModes.ADD);
-
-      // 방사형 각도와 랜덤 튕김 속도(140~420)
-      const blastAngle = Math.random() * Math.PI * 2;
-      const blastSpeed = Phaser.Math.Between(140, 420);
-
-      orb.setVelocity(
-        Math.cos(blastAngle) * blastSpeed,
-        Math.sin(blastAngle) * blastSpeed
-      );
-      orb.setDrag(280); // 바닥에 미끄러지듯 멈추는 물리 마찰력
-    }
-
     // 물리 시간 축을 느리게 만들어 처치 쾌감 극대화 (0.8초 뒤 정상 복귀)
     this.physics.world.timeScale = 3.0;
     this.time.delayedCall(800, () => {
       this.physics.world.timeScale = 1.0;
     });
 
-    // 4. 승리 보상: 최대 체력 +10 확장
     this.state.maxHp += 10;
+    this.state.hp = Math.min(this.state.maxHp, this.state.hp + 50);
     this.updateHUD();
 
     // 5. DLC 페이즈 전환 상태 플래그
@@ -6490,8 +6837,8 @@ class MainScene extends Phaser.Scene {
       this.state.awakeningTier >= 2
         ? ` - ${this.state.awakeningPath || 'BETA'}`
         : this.state.awakeningTier === 1
-        ? ' - ALPHA'
-        : '';
+          ? ' - ALPHA'
+          : '';
 
     // 3. 카메라 슬로우 모션 여운 & 진동/플래시
     this.cameras.main.shake(900, 0.025);
@@ -6644,7 +6991,7 @@ class MainScene extends Phaser.Scene {
     if (this.projectiles) this.projectiles.clear(true, true);
     if (this.enemies) this.enemies.clear(true, true);
     if (this.bloodOrbs) this.bloodOrbs.clear(true, true);
-    
+
 
     this.cameras.main.flash(600, 168, 85, 247);
     this.cameras.main.shake(500, 0.015);
@@ -6751,86 +7098,173 @@ class MainScene extends Phaser.Scene {
         }
       },
     });
+
+    // ★ [히든 조건] 패링 5회 이상 OR 무피격 상태일 때만 맵 북쪽 끝(700, 110)에 Tainted 포탈 개방
+    const isTaintedUnlocked = this.state.successfulParries >= 5 || !this.state.hasTakenDamage;
+    let taintedObjs = [];
+    let taintedCheckTimer = null;
+
+    if (isTaintedUnlocked) {
+      const tx = 700;
+      const ty = 110; // 맵 최상단 끝쪽
+
+      const tOuter = this.add
+        .circle(tx, ty, 40, 0x1a0004, 0.9)
+        .setStrokeStyle(3, 0xdc2626, 0.9)
+        .setDepth(5);
+
+      const tInner = this.add
+        .circle(tx, ty, 24, 0x090406, 1)
+        .setStrokeStyle(2, 0x94a3b8, 0.8)
+        .setBlendMode(Phaser.BlendModes.ADD)
+        .setDepth(6);
+
+      const tParticles = this.add
+        .particles(tx, ty, 'px', {
+          color: [0xdc2626, 0x991b1b, 0x94a3b8],
+          scale: { start: 2.2, end: 0 },
+          alpha: { start: 0.8, end: 0 },
+          speed: { min: 15, max: 45 },
+          angle: { min: 0, max: 360 },
+          lifespan: 700,
+          frequency: 45,
+          blendMode: 'ADD',
+        })
+        .setDepth(6);
+
+      const tLabel = this.add
+        .text(tx, ty - 58, '[ Tainted Rift : Sacrifice 50% Max HP ]', {
+          fontFamily: 'monospace',
+          fontSize: '12px',
+          color: '#ef4444',
+          stroke: '#000000',
+          strokeThickness: 4,
+        })
+        .setOrigin(0.5)
+        .setDepth(20);
+
+      taintedObjs = [tOuter, tInner, tParticles, tLabel];
+
+      taintedCheckTimer = this.time.addEvent({
+        delay: 50,
+        loop: true,
+        callback: () => {
+          if (entered || !this.player || !this.player.active) return;
+
+          if (Phaser.Math.Distance.Between(this.player.x, this.player.y, tx, ty) <= 45) {
+            entered = true;
+            portalCheckTimer.remove();
+            taintedCheckTimer.remove();
+
+            // ★ 입장 패널티: 최대 체력 절반 삭감 (최소 40 보장)
+            this.state.isTaintedAct2 = true;
+            this.state.maxHp = Math.max(40, Math.floor(this.state.maxHp * 0.5));
+            this.state.hp = Math.min(this.state.hp, this.state.maxHp);
+            this.updateHUD();
+
+            this.player.setVelocity(0, 0);
+            this.physics.world.pause();
+            this.cameras.main.shake(800, 0.03);
+            this.cameras.main.fade(700, 26, 0, 4); // 검붉은 암전
+
+            this.time.delayedCall(750, () => {
+              portalOuter.destroy();
+              portalInner.destroy();
+              portalParticles.destroy();
+              portalLabel.destroy();
+              taintedObjs.forEach((o) => o.destroy());
+
+              this.buildAct2MythosWorld(true); // ★ true 전달 -> 사후 황무지 로드!
+            });
+          }
+        },
+      });
+    }
   }
-  buildAct2MythosWorld() {
+  buildAct2MythosWorld(isTainted = false) {
     this.state.isAct2 = true;
     this.state.isAct2Waiting = false;
 
-    // 1. 기존 Act 1 회색 그리드 & 마법진 배경이 있다면 제거
     if (this.act1BgGfx) {
       this.act1BgGfx.destroy();
       this.act1BgGfx = null;
     }
-    if (this.bloodDecalGfx) {
-      this.bloodDecalGfx.clear();
-    }
+    if (this.bloodDecalGfx) this.bloodDecalGfx.clear();
 
     const worldW = 1400;
     const worldH = 1400;
+    const cx = worldW / 2;
+    const cy = worldH / 2;
 
-    // 2. 새로운 Act 2 전용 배경 Graphics 생성 (가장 아래 Depth)
+    // ★ 루트별 컬러 팔레트 세팅 (사후 황무지 vs 심해 르뤼에)
+    const pal = isTainted
+      ? {
+        bgHex: '#120f11',
+        bgNum: 0x120f11,
+        slab: 0x261a1c,
+        crack: 0x450a0a,
+        center: 0x7f1d1d,
+        pillarBg: 0x1c1214,
+        rune: 0xdc2626,
+        particles: [0x94a3b8, 0x64748b, 0xdc2626, 0xef4444], // 회색 재 + 붉은 불티
+        title: 'ACT II [TAINTED] : The Ashen Wasteland\nDEADLANDS',
+        titleColor: '#f87171',
+        guide: '🩸 [TAINTED ACT II] Your vitality is halved. Survive to claim Gamma Awakening.',
+      }
+      : {
+        bgHex: '#03090a',
+        bgNum: 0x03090a,
+        slab: 0x0b211d,
+        crack: 0x113830,
+        center: 0x0f3d33,
+        pillarBg: 0x071714,
+        rune: 0x10b981,
+        particles: [0x10b981, 0x6ee7b7, 0xa855f7],
+        title: 'ACT II : The Sunken Ancient City\nSUNKEN R’LYEH',
+        titleColor: '#6ee7b7',
+        guide: '🌌 [ACT II] You have left the Chamber of Ritual and stepped into the domain of the Elder Gods.',
+      };
+
     this.act2BgGfx = this.add.graphics().setDepth(-10);
+    this.cameras.main.setBackgroundColor(pal.bgHex);
+    this.act2BgGfx.fillStyle(pal.bgNum, 1).fillRect(0, 0, worldW, worldH);
 
-    // (A) 심연의 기저 바닥색 (차가운 회색 대신 기괴한 심해 녹흑색 '#03090a')
-    this.cameras.main.setBackgroundColor('#03090a');
-    this.act2BgGfx.fillStyle(0x03090a, 1);
-    this.act2BgGfx.fillRect(0, 0, worldW, worldH);
-
-    // (B) 반듯한 격자(Grid) 대신, 불규칙하고 거대한 '고대 유적 석판(Cyclopean Slabs)'과 균열 그리기
-    this.act2BgGfx.lineStyle(2, 0x0b211d, 0.7);
+    // 석판 & 균열
+    this.act2BgGfx.lineStyle(2, pal.slab, 0.7);
     for (let x = 0; x < worldW; x += 180) {
       for (let y = 0; y < worldH; y += 180) {
-        // 비유클리드 느낌을 위해 석판 모서리를 살짝씩 비틀어 배치
         const offsetX = ((y / 180) % 2) * 60;
         this.act2BgGfx.strokeRect(x + offsetX, y, 172, 172);
-
-        // 석판 내부의 기하학적 고대 문양(사선 균열)
         if ((x + y) % 360 === 0) {
-          this.act2BgGfx.lineStyle(1, 0x113830, 0.4);
-          this.act2BgGfx.lineBetween(
-            x + offsetX + 20,
-            y + 20,
-            x + offsetX + 150,
-            y + 150
-          );
-          this.act2BgGfx.lineStyle(2, 0x0b211d, 0.7);
+          this.act2BgGfx.lineStyle(1, pal.crack, 0.55);
+          this.act2BgGfx.lineBetween(x + offsetX + 20, y + 20, x + offsetX + 150, y + 150);
+          this.act2BgGfx.lineStyle(2, pal.slab, 0.7);
         }
       }
     }
 
-    // (C) 맵 중앙: 기존의 인위적인 마법진 대신 '잠든 옛 지배자의 거대한 심연의 눈(Eldritch Eye) 문양'
-    const cx = worldW / 2;
-    const cy = worldH / 2;
-    this.act2BgGfx.lineStyle(3, 0x0f3d33, 0.6);
+    // 중앙 문양
+    this.act2BgGfx.lineStyle(3, pal.center, 0.65);
     this.act2BgGfx.strokeCircle(cx, cy, 260);
-    this.act2BgGfx.strokeEllipse(cx, cy, 480, 190); // 가로로 찢어진 거대 안구 형상
-    this.act2BgGfx.strokeEllipse(cx, cy, 80, 185); // 세로로 찢어진 파충류/심연 동공
+    this.act2BgGfx.strokeEllipse(cx, cy, 480, 190);
+    this.act2BgGfx.strokeEllipse(cx, cy, 80, 185);
 
-    // (D) 맵 곳곳에 솟아있는 '고대 모놀리스(Monolith) 기둥'과 신비로운 발광 룬 오브젝트 배치
+    // 모놀리스 기둥 & 룬 코어
     const pillarSpots = [
-      { x: cx - 380, y: cy - 280 },
-      { x: cx + 380, y: cy - 280 },
-      { x: cx - 380, y: cy + 280 },
-      { x: cx + 380, y: cy + 280 },
-      { x: cx, y: cy - 420 },
-      { x: cx, y: cy + 420 },
+      { x: cx - 380, y: cy - 280 }, { x: cx + 380, y: cy - 280 },
+      { x: cx - 380, y: cy + 280 }, { x: cx + 380, y: cy + 280 },
+      { x: cx, y: cy - 420 }, { x: cx, y: cy + 420 },
     ];
 
     this.act2Runes = [];
-
     pillarSpots.forEach((spot) => {
-      // 기둥 바닥 그림자 및 석조 단상
-      this.act2BgGfx.fillStyle(0x071714, 0.9);
-      this.act2BgGfx.fillCircle(spot.x, spot.y, 42);
-      this.act2BgGfx.lineStyle(2, 0x10b981, 0.35);
-      this.act2BgGfx.strokeCircle(spot.x, spot.y, 42);
+      this.act2BgGfx.fillStyle(pal.pillarBg, 0.9).fillCircle(spot.x, spot.y, 42);
+      this.act2BgGfx.lineStyle(2, pal.rune, 0.4).strokeCircle(spot.x, spot.y, 42);
 
-      // 은은하게 숨 쉬듯 빛나는 고대 룬 코어
       const runeGlow = this.add
-        .circle(spot.x, spot.y, 8, 0x10b981, 0.5)
+        .circle(spot.x, spot.y, 8, pal.rune, 0.5)
         .setBlendMode(Phaser.BlendModes.ADD)
         .setDepth(-5);
-
       this.act2Runes.push(runeGlow);
 
       this.tweens.add({
@@ -6843,45 +7277,39 @@ class MainScene extends Phaser.Scene {
       });
     });
 
-    // (E) 공기 중에 부유하는 심해 발광 포자(Eldritch Spores) 환경 파티클
+    // 환경 파티클 (황무지는 바람에 날리는 재/불티, 심해는 위로 뜨는 포자)
     this.act2AmbientParticles = this.add
       .particles(0, 0, 'px', {
         x: { min: 0, max: worldW },
         y: { min: 0, max: worldH },
-        color: [0x10b981, 0x6ee7b7, 0xa855f7],
-        scale: { start: 1.8, end: 0 },
-        alpha: { start: 0.45, end: 0 },
-        speedY: { min: -25, max: -8 },
-        speedX: { min: -10, max: 10 },
+        color: pal.particles,
+        scale: { start: 2.0, end: 0 },
+        alpha: { start: 0.5, end: 0 },
+        speedX: isTainted ? { min: 25, max: 65 } : { min: -10, max: 10 },
+        speedY: isTainted ? { min: -10, max: 15 } : { min: -25, max: -8 },
         lifespan: { min: 2500, max: 4500 },
-        frequency: 90,
+        frequency: 75,
         blendMode: 'ADD',
       })
       .setDepth(-2);
 
-    // 3. 플레이어를 새로운 심연 맵의 정중앙으로 재배치하고 물리 엔진 재개
     this.player.setPosition(cx, cy);
     this.physics.world.resume();
-    this.cameras.main.fadeIn(1000, 2, 6, 23);
+    this.cameras.main.fadeIn(1000, isTainted ? 26 : 2, isTainted ? 0 : 6, isTainted ? 4 : 23);
 
     this.initAct2Loop();
 
-    // 4. 모험의 시작을 알리는 챕터 타이틀 연출
+    // 챕터 타이틀 & 가이드
     const chapterTitle = this.add
-      .text(
-        this.cameras.main.centerX,
-        this.cameras.main.centerY - 50,
-        'ACT II : The Sunken Ancient City\nSUNKEN R’LYEH',
-        {
-          fontFamily: 'Georgia, serif',
-          fontSize: '26px',
-          color: '#6ee7b7',
-          align: 'center',
-          fontStyle: 'bold',
-          stroke: '#022c22',
-          strokeThickness: 6,
-        }
-      )
+      .text(this.cameras.main.centerX, this.cameras.main.centerY - 50, pal.title, {
+        fontFamily: 'Georgia, serif',
+        fontSize: '26px',
+        color: pal.titleColor,
+        align: 'center',
+        fontStyle: 'bold',
+        stroke: '#000000',
+        strokeThickness: 6,
+      })
       .setOrigin(0.5)
       .setScrollFactor(0)
       .setDepth(200);
@@ -6895,13 +7323,9 @@ class MainScene extends Phaser.Scene {
       onComplete: () => chapterTitle.destroy(),
     });
 
-    this.hudGuide
-      .setText(
-        '🌌 [ACT II] You have left the Chamber of Ritual and stepped into the domain of the Elder Gods.'
-      )
-      .setColor('#6ee7b7');
+    this.hudGuide.setText(pal.guide).setColor(pal.titleColor);
   }
-  
+
 
   // ★ [핵심] PC 마우스 조준 & 모바일 스마트 오토에임 통합 각도 반환기
   getAimAngle() {
@@ -6921,7 +7345,7 @@ class MainScene extends Phaser.Scene {
   }
 
 
-  
+
 }
 
 
