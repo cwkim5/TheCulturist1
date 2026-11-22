@@ -2,6 +2,7 @@
 // [1. DATA & CONFIG] - 수치 밸런싱 테이블
 // ============================================================================
 const GAME_CONFIG = {
+  DEBUG_UNLOCK_TAINTED: true,
   PLAYER: {
     SPEED: 190,
     DAGGER_RANGE: 62,
@@ -2346,9 +2347,9 @@ class MainScene extends Phaser.Scene {
       enemy.destroy();
       return;
     } else {
-      if (enemy.isTaintedEnemy && Math.random() < 1 / 3) {
-        this.triggerUndeadLastStand(enemy.x, enemy.y, enemy.isBloodSniper);
-      }
+      if (enemy.isBloodSniper && Math.random() < 1 / 3) {
+  this.triggerUndeadLastStand(enemy.x, enemy.y);
+}
       enemy.destroy();
     }
     this.state.kills++;
@@ -2365,85 +2366,80 @@ class MainScene extends Phaser.Scene {
     this.time.delayedCall(50, () => this.checkWaveAcceleration());
   }
 
-  triggerUndeadLastStand(x, y, isRanged) {
-    if (this.state.isGameOver) return;
+  triggerUndeadLastStand(x, y) {
+  if (this.state.isGameOver) return;
 
-    // 1. 깨어나는 언데드 잔영 연출
-    const husk = this.add
-      .sprite(x, y, isRanged ? 'blood_sniper' : 'ashen_hound')
-      .setTint(0xef4444)
-      .setAlpha(0.75)
-      .setBlendMode(Phaser.BlendModes.ADD)
-      .setDepth(13);
+  // 1. 시체 자리에서 붉은 잔영 생성 (기상 연출)
+  const husk = this.add
+    .sprite(x, y, 'blood_sniper')
+    .setTint(0xef4444)
+    .setAlpha(0.25)
+    .setBlendMode(Phaser.BlendModes.ADD)
+    .setDepth(13);
+
+  // 기상 중 붉게 맥동 (1.3초)
+  const pulseTween = this.tweens.add({
+    targets: husk,
+    alpha: 0.85,
+    scale: 1.15,
+    duration: 260,
+    yoyo: true,
+    repeat: 2,
+  });
+
+  // 2. 1.3초 뒤: 플레이어 위치 조준 고정 + 붉은 레이저 0.7초간 표시
+  this.time.delayedCall(1300, () => {
+    if (this.state.isGameOver || !this.player || !this.player.active) {
+      husk.destroy();
+      return;
+    }
+
+    pulseTween.stop();
+    husk.setAlpha(0.95).setScale(1.1);
 
     const lockAngle = Phaser.Math.Angle.Between(x, y, this.player.x, this.player.y);
     husk.setRotation(lockAngle);
 
-    // 바닥 경고선 (근접: 140px 돌진 궤적 / 원거리: 480px 저격선)
-    const warnDist = isRanged ? 480 : 140;
     const warnLine = this.add
       .graphics()
       .setDepth(4)
-      .lineStyle(isRanged ? 2 : 12, 0xff003c, isRanged ? 0.8 : 0.3)
-      .lineBetween(x, y, x + Math.cos(lockAngle) * warnDist, y + Math.sin(lockAngle) * warnDist);
+      .lineStyle(2, 0xff003c, 0.85)
+      .lineBetween(
+        x,
+        y,
+        x + Math.cos(lockAngle) * 520,
+        y + Math.sin(lockAngle) * 520
+      );
 
-    // 2. 0.48초 뒤 최후의 공격 발동
-    this.time.delayedCall(480, () => {
+    // 3. 총 2.0초 시점(0.7초 뒤): 최후의 저격탄 발사 및 소멸
+    this.time.delayedCall(700, () => {
       warnLine.destroy();
       if (this.state.isGameOver) {
         husk.destroy();
         return;
       }
 
-      if (isRanged) {
-        // [원거리 언데드] 최후의 초고속 저격탄 발사 (패링/반사 가능!)
-        const bolt = this.projectiles.create(x, y, 'holy_bolt').setDepth(9);
-        bolt.setTint(0xff003c).setScale(1.4);
-        bolt.setVelocity(Math.cos(lockAngle) * 560, Math.sin(lockAngle) * 560);
-        this.time.delayedCall(2200, () => { if (bolt.active) bolt.destroy(); });
+      const bolt = this.projectiles
+        .create(x, y, 'holy_bolt')
+        .setDepth(9)
+        .setTint(0xff003c)
+        .setScale(1.4);
 
-        this.tweens.add({
-          targets: husk,
-          alpha: 0,
-          scale: 1.4,
-          duration: 220,
-          onComplete: () => husk.destroy(),
-        });
-      } else {
-        // [근접 언데드] 플레이어 방향으로 최후의 돌진 참격
-        const tx = x + Math.cos(lockAngle) * 140;
-        const ty = y + Math.sin(lockAngle) * 140;
+      bolt.setVelocity(Math.cos(lockAngle) * 560, Math.sin(lockAngle) * 560);
+      this.time.delayedCall(2500, () => {
+        if (bolt && bolt.active) bolt.destroy();
+      });
 
-        this.tweens.add({
-          targets: husk,
-          x: tx,
-          y: ty,
-          alpha: 0,
-          duration: 180,
-          ease: 'Cubic.easeOut',
-          onComplete: () => husk.destroy(),
-        });
-
-        // 돌진 경로(중간점 & 끝점) 피격 및 패링 체크
-        const midX = (x + tx) / 2;
-        const midY = (y + ty) / 2;
-        const hitPlayer =
-          Phaser.Math.Distance.Between(midX, midY, this.player.x, this.player.y) <= 55 ||
-          Phaser.Math.Distance.Between(tx, ty, this.player.x, this.player.y) <= 45;
-
-        if (hitPlayer) {
-          if (this.state.isParrying) {
-            this.registerParrySuccess();
-            if (this.state.form === 'DAGON') this.triggerDagonWave();
-          } else if (!this.state.isDashing && !this.state.isInvulnerable) {
-            this.cameras.main.shake(150, 0.016);
-            this.cameras.main.flash(100, 200, 0, 0);
-            this.takeDamage(18);
-          }
-        }
-      }
+      this.tweens.add({
+        targets: husk,
+        alpha: 0,
+        scale: 1.5,
+        duration: 240,
+        onComplete: () => husk.destroy(),
+      });
     });
-  }
+  });
+}
 
   collectBlood(player, orb) {
     orb.destroy();
@@ -5281,6 +5277,54 @@ class MainScene extends Phaser.Scene {
     sniper.isTaintedEnemy = true;
   }
 
+  fireBloodSniper(e) {
+  e.isWindingUp = true;
+  e.setVelocity(0, 0);
+
+  const lockAngle = Phaser.Math.Angle.Between(e.x, e.y, this.player.x, this.player.y);
+  e.setRotation(lockAngle);
+  e.setTint(0xff003c);
+
+  // 조준 레이저 (0.7초간 유지 후 발사 직전 번쩍임)
+  const laser = this.add
+    .graphics()
+    .setDepth(4)
+    .lineStyle(2, 0xff003c, 0.75)
+    .lineBetween(
+      e.x,
+      e.y,
+      e.x + Math.cos(lockAngle) * 520,
+      e.y + Math.sin(lockAngle) * 520
+    );
+
+  this.time.delayedCall(700, () => {
+    laser.destroy();
+    // ★ 카운터로 캔슬되길 원하면 (!e.active || !e.isWindingUp) 유지
+    if (!e || !e.active || !e.isWindingUp) return;
+
+    e.isWindingUp = false;
+    e.clearTint();
+
+    // 실제 고속 저격탄 발사
+    const bolt = this.projectiles
+      .create(e.x, e.y, 'holy_bolt')
+      .setDepth(9)
+      .setTint(0xff003c)
+      .setScale(1.4);
+
+    bolt.setVelocity(Math.cos(lockAngle) * 540, Math.sin(lockAngle) * 540);
+    this.time.delayedCall(2500, () => {
+      if (bolt && bolt.active) bolt.destroy();
+    });
+
+    // 발사 후 1.6초 쿨타임
+    e.isAttacking = true;
+    this.time.delayedCall(1600, () => {
+      if (e && e.active) e.isAttacking = false;
+    });
+  });
+}
+
   checkWaveAcceleration() {
     if (this.state.isBossSpawned || this.state.isAct2Waiting || this.state.isGameOver) return;
     const activeEnemies = this.enemies.getChildren().filter(e => e.active && !e.isBoss).length;
@@ -6406,36 +6450,19 @@ class MainScene extends Phaser.Scene {
       );
       e.setRotation(angle);
 
+      if (e.isBloodSniper) {
+        if (dist <= 340 && !e.isWindingUp && !e.isAttacking) {
+          this.fireBloodSniper(e);
+        } else if (!e.isWindingUp && !e.isAttacking) {
+          this.physics.moveToObject(e, this.player, (e.baseSpeed || 55) * slowMult);
+        }
+        return;
+      }
+
       // ==========================================
       // [1] 원거리 적 (Act 1 사제 & Act 2 공허의 사역마)
       // ==========================================
       if (e.isRanged) {
-        if (e.isBloodSniper) {
-          // ★ 블러드 스나이퍼: 0.7초간 붉은 레이저 조준선 표시 후 초고속 단발 발사
-          const lockAngle = Phaser.Math.Angle.Between(e.x, e.y, this.player.x, this.player.y);
-          e.setRotation(lockAngle);
-          const laser = this.add
-            .graphics()
-            .setDepth(4)
-            .lineStyle(2, 0xff003c, 0.7)
-            .lineBetween(e.x, e.y, e.x + Math.cos(lockAngle) * 480, e.y + Math.sin(lockAngle) * 480);
-
-          this.time.delayedCall(700, () => {
-            laser.destroy();
-            if (!e.active || !e.isWindingUp) return;
-            e.isWindingUp = false;
-
-            const bolt = this.projectiles.create(e.x, e.y, 'holy_bolt').setDepth(9);
-            bolt.setTint(0xff003c).setScale(1.3);
-            bolt.setVelocity(Math.cos(lockAngle) * 520, Math.sin(lockAngle) * 520);
-            this.time.delayedCall(2500, () => { if (bolt.active) bolt.destroy(); });
-
-            e.isAttacking = true;
-            this.time.delayedCall(1600, () => { if (e.active) e.isAttacking = false; });
-          });
-          return;
-        }
-
         if (
           dist <= GAME_CONFIG.RANGED_ENEMY.ATTACK_RANGE &&
           !e.isWindingUp &&
@@ -6902,6 +6929,7 @@ class MainScene extends Phaser.Scene {
     this.state.isInvulnerable = true;
     this.player.setVelocity(0, 0);
 
+
     // 2. 신격별 고유 테마 컬러 및 승천 타이틀 매핑
     const FORM_THEMES = {
       'MORTAL CULTIST': { color: '#ef4444', hex: 0x991b1b, title: 'THE USURPER OF THE ABYSS' },
@@ -7034,6 +7062,46 @@ class MainScene extends Phaser.Scene {
       ease: 'Cubic.easeOut',
     });
 
+    const isFirstClear = localStorage.getItem('culturist_act2_cleared') !== 'true';
+    localStorage.setItem('culturist_act2_cleared', 'true');
+
+    // ★ 1회차 일반 Act 2 클리어 시(또는 Tainted 미진입 클리어 시) 해금 힌트 표시
+    if (isFirstClear && !this.state.isTaintedAct2) {
+      const hintText = this.add
+        .text(
+          cx,
+          cy + 125,
+          '“A tainted rift now stirs at the northern edge of the sanctuary...”',
+          {
+            fontFamily: 'Georgia, serif',
+            fontSize: '15px',
+            color: '#ff1e42',
+            fontStyle: 'italic',
+            stroke: '#000000',
+            strokeThickness: 4,
+            shadow: {
+              offsetX: 0,
+              offsetY: 0,
+              color: '#dc2626',
+              blur: 12,
+              fill: true,
+            },
+          }
+        )
+        .setOrigin(0.5)
+        .setScrollFactor(0)
+        .setDepth(302)
+        .setAlpha(0);
+
+      this.tweens.add({
+        targets: hintText,
+        alpha: 1,
+        delay: 1400, // 스탯 텍스트(900ms) 직후, 재시작 문구(1800ms) 직전에 등장
+        duration: 800,
+        ease: 'Cubic.easeOut',
+      });
+    }
+
     // 8. 1.8초 뒤 재시작 안내 문구 활성화 (사망 화면처럼 연타로 인한 즉시 스킵 방지)
     this.time.delayedCall(1800, () => {
       const promptText = this.add
@@ -7067,202 +7135,197 @@ class MainScene extends Phaser.Scene {
     });
   }
 
-  startAct2Phase(bx, by) {
-    if (this.crusaderTimer) this.crusaderTimer.remove();
-    if (this.inquisitorTimer) this.inquisitorTimer.remove();
-    if (this.projectiles) this.projectiles.clear(true, true);
-    if (this.enemies) this.enemies.clear(true, true);
-    if (this.bloodOrbs) this.bloodOrbs.clear(true, true);
+  startAct2Phase(bx = 700, by = 700) {
+  this.state.isAct2Waiting = true;
 
+  // 1. Act 1 스폰 타이머 및 잔여 오브젝트 정리
+  if (this.enemyTimer) this.enemyTimer.remove();
+  if (this.rangedTimer) this.rangedTimer.remove();
+  if (this.enemies) this.enemies.clear(true, true);
+  if (this.projectiles) this.projectiles.clear(true, true);
+  if (this.bloodOrbs) this.bloodOrbs.clear(true, true);
 
-    this.cameras.main.flash(600, 168, 85, 247);
-    this.cameras.main.shake(500, 0.015);
+  // 2. 일반 Act 2 포탈 생성 (보스 처치 위치 또는 중앙)
+  const hasTrueKey = localStorage.getItem('culturist_tainted_cleared') === 'true';
 
-    // 포탈 컨테이너 (외곽 기하학 링 + 내부 심연 소용돌이 + 코어)
-    const portalOuter = this.add
-      .circle(bx, by, 44, 0x090414, 0.9)
-      .setStrokeStyle(3, 0x10b981, 0.9)
+  const portalOuter = this.add
+    .circle(bx, by, 44, hasTrueKey ? 0x1a0b04 : 0x090414, 0.9)
+    .setStrokeStyle(3, hasTrueKey ? 0xfacc15 : 0x10b981, 0.95)
+    .setDepth(5);
+
+  const portalInner = this.add
+    .circle(bx, by, 28, 0x020617, 1)
+    .setStrokeStyle(2, hasTrueKey ? 0xff1e42 : 0x6ee7b7, 0.85)
+    .setBlendMode(Phaser.BlendModes.ADD)
+    .setDepth(6);
+
+  this.tweens.add({
+    targets: [portalOuter, portalInner],
+    scale: 1.08,
+    duration: hasTrueKey ? 450 : 900,
+    yoyo: true,
+    repeat: -1,
+    ease: 'Sine.easeInOut',
+  });
+
+  const portalParticles = this.add
+    .particles(bx, by, 'px', {
+      color: hasTrueKey ? [0xfacc15, 0xff1e42, 0xffffff] : [0x10b981, 0x6ee7b7, 0xa855f7],
+      scale: { start: 2.2, end: 0 },
+      alpha: { start: 0.85, end: 0 },
+      speed: { min: 15, max: 45 },
+      angle: { min: 0, max: 360 },
+      lifespan: 700,
+      frequency: 45,
+      blendMode: 'ADD',
+    })
+    .setDepth(6);
+
+  const portalLabel = this.add
+    .text(
+      bx,
+      by - 62,
+      hasTrueKey ? "[ Unsealed Gate : True R'lyeh ]" : '[ Abyssal Gate ]',
+      {
+        fontFamily: 'monospace',
+        fontSize: '13px',
+        color: hasTrueKey ? '#facc15' : '#6ee7b7',
+        stroke: '#000000',
+        strokeThickness: 4,
+      }
+    )
+    .setOrigin(0.5)
+    .setDepth(20);
+
+  // 3. 포탈 일괄 정리용 배열 및 헬퍼
+  const allPortalObjs = [portalOuter, portalInner, portalParticles, portalLabel];
+  const allPortalTimers = [];
+  let entered = false;
+
+  const cleanupPortals = () => {
+    allPortalTimers.forEach((t) => t.remove());
+    allPortalObjs.forEach((o) => {
+      if (o && o.active) o.destroy();
+    });
+  };
+
+  // 4. 일반 Act 2 포탈 진입 체크
+  const portalCheckTimer = this.time.addEvent({
+    delay: 50,
+    loop: true,
+    callback: () => {
+      if (entered || !this.player || !this.player.active) return;
+
+      if (Phaser.Math.Distance.Between(this.player.x, this.player.y, bx, by) <= 45) {
+        entered = true;
+        this.state.isTaintedAct2 = false;
+        allPortalTimers.forEach((t) => t.remove());
+
+        this.player.setVelocity(0, 0);
+        this.physics.world.pause();
+        this.cameras.main.shake(700, 0.025);
+        this.cameras.main.fade(700, 2, 6, 23);
+
+        this.time.delayedCall(750, () => {
+          cleanupPortals();
+          this.buildAct2MythosWorld(false);
+        });
+      }
+    },
+  });
+  allPortalTimers.push(portalCheckTimer);
+
+  // 5. 조건 충족 시 맵 북쪽 끝(700, 110)에 Tainted 포탈 생성
+  const isTaintedUnlocked =
+    GAME_CONFIG.DEBUG_UNLOCK_TAINTED ||
+    localStorage.getItem('culturist_act2_cleared') === 'true';
+
+  if (isTaintedUnlocked) {
+    const tx = 700;
+    const ty = 110;
+
+    const tOuter = this.add
+      .circle(tx, ty, 40, 0x1a0004, 0.9)
+      .setStrokeStyle(3, 0xdc2626, 0.9)
       .setDepth(5);
 
-    const portalInner = this.add
-      .circle(bx, by, 28, 0x020617, 1)
-      .setStrokeStyle(2, 0xa855f7, 0.85)
+    const tInner = this.add
+      .circle(tx, ty, 24, 0x090406, 1)
+      .setStrokeStyle(2, 0x94a3b8, 0.8)
       .setBlendMode(Phaser.BlendModes.ADD)
       .setDepth(6);
 
-    // 포탈 주변에서 빨려 들어가는 심연 입자
-    const portalParticles = this.add
-      .particles(bx, by, 'px', {
-        color: [0x10b981, 0xa855f7, 0x064e3b],
-        scale: { start: 2.5, end: 0 },
-        alpha: { start: 0.8, end: 0 },
-        speed: { min: 15, max: 45 },
-        angle: { min: 0, max: 360 },
-        lifespan: 700,
-        frequency: 40,
-        blendMode: 'ADD',
-      })
-      .setDepth(6);
-
-    // 포탈 맥동 애니메이션
     this.tweens.add({
-      targets: portalOuter,
-      scale: 1.18,
-      duration: 900,
+      targets: [tOuter, tInner],
+      scale: 1.1,
+      duration: 600,
       yoyo: true,
       repeat: -1,
       ease: 'Sine.easeInOut',
     });
 
-    this.tweens.add({
-      targets: portalInner,
-      scale: 0.75,
-      alpha: 0.4,
-      duration: 600,
-      yoyo: true,
-      repeat: -1,
-    });
+    const tParticles = this.add
+      .particles(tx, ty, 'px', {
+        color: [0xdc2626, 0x991b1b, 0x94a3b8],
+        scale: { start: 2.2, end: 0 },
+        alpha: { start: 0.8, end: 0 },
+        speed: { min: 15, max: 45 },
+        angle: { min: 0, max: 360 },
+        lifespan: 700,
+        frequency: 45,
+        blendMode: 'ADD',
+      })
+      .setDepth(6);
 
-    // 포탈 위 안내 텍스트
-    const portalLabel = this.add
-      .text(bx, by - 62, '[ Abyssal Gate ]', {
+    const tLabel = this.add
+      .text(tx, ty - 58, '[ Tainted Rift : Sacrifice 50% Max HP ]', {
         fontFamily: 'monospace',
         fontSize: '12px',
-        color: '#a7f3d0',
-        align: 'center',
+        color: '#ef4444',
         stroke: '#000000',
         strokeThickness: 4,
       })
       .setOrigin(0.5)
       .setDepth(20);
 
-    this.hudGuide
-      .setText(
-        '🌀 A dimensional rift has opened. Step into the portal to enter the Abyss.'
-      )
-      .setColor('#34d399');
+    allPortalObjs.push(tOuter, tInner, tParticles, tLabel);
 
-    // 플레이어가 포탈 반경(45px) 안으로 걸어 들어왔는지 체크하는 타이머
-    let entered = false;
-    const portalCheckTimer = this.time.addEvent({
+    const taintedCheckTimer = this.time.addEvent({
       delay: 50,
       loop: true,
       callback: () => {
         if (entered || !this.player || !this.player.active) return;
 
-        const dist = Phaser.Math.Distance.Between(
-          this.player.x,
-          this.player.y,
-          bx,
-          by
-        );
-
-        if (dist <= 45) {
+        if (Phaser.Math.Distance.Between(this.player.x, this.player.y, tx, ty) <= 45) {
           entered = true;
-          portalCheckTimer.remove();
+          this.state.isTaintedAct2 = true;
+          allPortalTimers.forEach((t) => t.remove());
 
-          // 포탈로 빨려 들어가는 연출
+          // 입장 패널티: 최대 체력 절반 삭감 (최소 40 보장)
+          this.state.maxHp = Math.max(40, Math.floor(this.state.maxHp * 0.5));
+          this.state.hp = Math.min(this.state.hp, this.state.maxHp);
+          this.updateHUD();
+
           this.player.setVelocity(0, 0);
           this.physics.world.pause();
-
-          this.cameras.main.shake(700, 0.025);
-          this.cameras.main.fade(700, 2, 6, 23); // 심연의 암흑으로 페이드아웃
+          this.cameras.main.shake(800, 0.03);
+          this.cameras.main.fade(700, 26, 0, 4);
 
           this.time.delayedCall(750, () => {
-            portalOuter.destroy();
-            portalInner.destroy();
-            portalParticles.destroy();
-            portalLabel.destroy();
-
-            // ★ 2단계: 본격적인 크툴루 신화 배경(Act 2 월드) 구축 및 전환!
-            this.buildAct2MythosWorld();
+            cleanupPortals();
+            this.buildAct2MythosWorld(true);
           });
         }
       },
     });
-
-    // ★ [히든 조건] 패링 5회 이상 OR 무피격 상태일 때만 맵 북쪽 끝(700, 110)에 Tainted 포탈 개방
-    const isTaintedUnlocked = this.state.successfulParries >= 5 || !this.state.hasTakenDamage;
-    let taintedObjs = [];
-    let taintedCheckTimer = null;
-
-    if (isTaintedUnlocked) {
-      const tx = 700;
-      const ty = 110; // 맵 최상단 끝쪽
-
-      const tOuter = this.add
-        .circle(tx, ty, 40, 0x1a0004, 0.9)
-        .setStrokeStyle(3, 0xdc2626, 0.9)
-        .setDepth(5);
-
-      const tInner = this.add
-        .circle(tx, ty, 24, 0x090406, 1)
-        .setStrokeStyle(2, 0x94a3b8, 0.8)
-        .setBlendMode(Phaser.BlendModes.ADD)
-        .setDepth(6);
-
-      const tParticles = this.add
-        .particles(tx, ty, 'px', {
-          color: [0xdc2626, 0x991b1b, 0x94a3b8],
-          scale: { start: 2.2, end: 0 },
-          alpha: { start: 0.8, end: 0 },
-          speed: { min: 15, max: 45 },
-          angle: { min: 0, max: 360 },
-          lifespan: 700,
-          frequency: 45,
-          blendMode: 'ADD',
-        })
-        .setDepth(6);
-
-      const tLabel = this.add
-        .text(tx, ty - 58, '[ Tainted Rift : Sacrifice 50% Max HP ]', {
-          fontFamily: 'monospace',
-          fontSize: '12px',
-          color: '#ef4444',
-          stroke: '#000000',
-          strokeThickness: 4,
-        })
-        .setOrigin(0.5)
-        .setDepth(20);
-
-      taintedObjs = [tOuter, tInner, tParticles, tLabel];
-
-      taintedCheckTimer = this.time.addEvent({
-        delay: 50,
-        loop: true,
-        callback: () => {
-          if (entered || !this.player || !this.player.active) return;
-
-          if (Phaser.Math.Distance.Between(this.player.x, this.player.y, tx, ty) <= 45) {
-            entered = true;
-            portalCheckTimer.remove();
-            taintedCheckTimer.remove();
-
-            // ★ 입장 패널티: 최대 체력 절반 삭감 (최소 40 보장)
-            this.state.isTaintedAct2 = true;
-            this.state.maxHp = Math.max(40, Math.floor(this.state.maxHp * 0.5));
-            this.state.hp = Math.min(this.state.hp, this.state.maxHp);
-            this.updateHUD();
-
-            this.player.setVelocity(0, 0);
-            this.physics.world.pause();
-            this.cameras.main.shake(800, 0.03);
-            this.cameras.main.fade(700, 26, 0, 4); // 검붉은 암전
-
-            this.time.delayedCall(750, () => {
-              portalOuter.destroy();
-              portalInner.destroy();
-              portalParticles.destroy();
-              portalLabel.destroy();
-              taintedObjs.forEach((o) => o.destroy());
-
-              this.buildAct2MythosWorld(true); // ★ true 전달 -> 사후 황무지 로드!
-            });
-          }
-        },
-      });
-    }
+    allPortalTimers.push(taintedCheckTimer);
   }
+
+  this.hudGuide
+    .setText('🌌 A dimensional rift has opened. Step into the Abyssal Gate.')
+    .setColor('#6ee7b7');
+}
+
   buildAct2MythosWorld(isTainted = false) {
     this.state.isAct2 = true;
     this.state.isAct2Waiting = false;
