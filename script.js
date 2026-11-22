@@ -188,36 +188,42 @@ class PreloadScene extends Phaser.Scene {
       .generateTexture('boss', 64, 64)
       .clear();
 
-    // [Tainted Act 2 텍스처 1] 잿빛 망령 (Ashen Hound) - 36x36
+    // [Dreamlands 몹 1] 나이트건트 (Nightgaunt) - 얼굴 없는 검은 날개 추격자 (36x36)
     const ashGfx = this.make.graphics({ x: 0, y: 0, add: false });
-    ashGfx.fillStyle(0x3f3f46, 1); // 잿빛 몸체
-    ashGfx.lineStyle(2, 0x94a3b8, 0.9); // 창백한 뼈 테두리
+    ashGfx.fillStyle(0x160f29, 1); // 칠흑빛 심야 보라 몸체
+    ashGfx.lineStyle(2, 0xc084fc, 0.9); // 몽환적인 연보라 윤곽선
+    // 박쥐 날개 + 뾰족한 몸체 실루엣
     ashGfx.beginPath();
-    ashGfx.moveTo(33, 18); // 날카로운 전방 주둥이
-    ashGfx.lineTo(14, 5);
-    ashGfx.lineTo(4, 14);
-    ashGfx.lineTo(10, 18);
-    ashGfx.lineTo(4, 22);
-    ashGfx.lineTo(14, 31);
+    ashGfx.moveTo(30, 18); // 얼굴 없는 매끈한 머리
+    ashGfx.lineTo(18, 4);  // 좌측 날개 끝
+    ashGfx.lineTo(6, 10);
+    ashGfx.lineTo(12, 18); // 꼬리/허리
+    ashGfx.lineTo(6, 26);
+    ashGfx.lineTo(18, 32); // 우측 날개 끝
     ashGfx.closePath();
     ashGfx.fillPath();
     ashGfx.strokePath();
-    ashGfx.fillStyle(0xff003c, 1); // 붉은 안광
-    ashGfx.fillCircle(21, 14, 2);
-    ashGfx.fillCircle(21, 22, 2);
+    // 머리 앞쪽 은빛 초승달 뿔 2개 (눈 대신 뿔로 전방 방향성 표현)
+    ashGfx.lineStyle(2, 0xe2e8f0, 1);
+    ashGfx.lineBetween(24, 14, 34, 11);
+    ashGfx.lineBetween(24, 22, 34, 25);
     ashGfx.generateTexture('ashen_hound', 36, 36);
     ashGfx.destroy();
 
-    // [Tainted Act 2 텍스처 2] 블러드 스나이퍼 (Blood Sniper) - 36x36
+    // [Dreamlands 몹 2] 문비스트 저격수 (Moon-Beast) - 창백한 달빛 저격수 (36x36)
     const snpGfx = this.make.graphics({ x: 0, y: 0, add: false });
-    snpGfx.fillStyle(0x18181b, 1); // 어두운 잿빛 후드
-    snpGfx.lineStyle(2, 0xdc2626, 0.9); // 선혈 테두리
-    snpGfx.fillCircle(14, 18, 11);
-    snpGfx.strokeCircle(14, 18, 11);
-    snpGfx.fillStyle(0x94a3b8, 1); // 길게 뻗은 총열/지팡이
-    snpGfx.fillRect(16, 16, 19, 4);
-    snpGfx.fillStyle(0xff003c, 1); // 총구 끝 붉은 조준 코어
-    snpGfx.fillCircle(34, 18, 2.5);
+    snpGfx.fillStyle(0x2e1065, 1); // 깊은 자수정 로브
+    snpGfx.lineStyle(2, 0xe2e8f0, 0.9); // 창백한 은빛 테두리
+    snpGfx.fillCircle(13, 18, 11);
+    snpGfx.strokeCircle(13, 18, 11);
+    // 창백한 달빛 얼굴(코어)
+    snpGfx.fillStyle(0xd8b4fe, 0.9);
+    snpGfx.fillCircle(15, 18, 5);
+    // 은빛 저격 지팡이 + 마젠타/선혈 조준 코어 (보라 배경에서 시인성 확보)
+    snpGfx.fillStyle(0xe2e8f0, 1);
+    snpGfx.fillRect(17, 16, 17, 4);
+    snpGfx.fillStyle(0xff0055, 1);
+    snpGfx.fillCircle(34, 18, 2.8);
     snpGfx.generateTexture('blood_sniper', 36, 36);
     snpGfx.destroy();
 
@@ -2325,8 +2331,8 @@ class MainScene extends Phaser.Scene {
       this.spawnBurningSoul(enemy.x, enemy.y);
     }
 
-
-    this.bloodDecalGfx.fillStyle(0x450a0a, 0.75).fillCircle(enemy.x, enemy.y, Phaser.Math.Between(10, 22));
+    const decalColor = this.state.isTaintedAct2 ? 0x6b21a8 : 0x660000;
+    this.bloodDecalGfx.fillStyle(decalColor, this.state.isTaintedAct2 ? 0.5 : 0.45);
 
     // ★ 고정값 0.7 대신 this.state.orbDropRate 사용 (감마 선택 시 0.35로 작동!)
     if (Math.random() < (this.state.orbDropRate ?? 0.7)) {
@@ -2369,15 +2375,15 @@ class MainScene extends Phaser.Scene {
   triggerUndeadLastStand(x, y) {
   if (this.state.isGameOver) return;
 
-  // 1. 시체 자리에서 붉은 잔영 생성 (기상 연출)
+  // 1. 시체 자리에서 보라색 잔영 생성 (기상 연출)
   const husk = this.add
-    .sprite(x, y, 'blood_sniper')
-    .setTint(0xef4444)
-    .setAlpha(0.25)
-    .setBlendMode(Phaser.BlendModes.ADD)
-    .setDepth(13);
+  .sprite(x, y, 'blood_sniper')
+  .setTint(0xc084fc) // ★ 몽환 보라
+  .setAlpha(0.25)
+  .setBlendMode(Phaser.BlendModes.ADD)
+  .setDepth(13);
 
-  // 기상 중 붉게 맥동 (1.3초)
+  // 기상 중 맥동 (1.3초)
   const pulseTween = this.tweens.add({
     targets: husk,
     alpha: 0.85,
@@ -2403,13 +2409,8 @@ class MainScene extends Phaser.Scene {
     const warnLine = this.add
       .graphics()
       .setDepth(4)
-      .lineStyle(2, 0xff003c, 0.85)
-      .lineBetween(
-        x,
-        y,
-        x + Math.cos(lockAngle) * 520,
-        y + Math.sin(lockAngle) * 520
-      );
+      .lineStyle(2, 0xff0055, 0.9) // ★ 마젠타 레이저
+      .lineBetween(x, y, x + Math.cos(lockAngle) * 520, y + Math.sin(lockAngle) * 520);
 
     // 3. 총 2.0초 시점(0.7초 뒤): 최후의 저격탄 발사 및 소멸
     this.time.delayedCall(700, () => {
@@ -2422,7 +2423,7 @@ class MainScene extends Phaser.Scene {
       const bolt = this.projectiles
         .create(x, y, 'holy_bolt')
         .setDepth(9)
-        .setTint(0xff003c)
+        .setTint(0xff0055) // ★ 마젠타 탄환
         .setScale(1.4);
 
       bolt.setVelocity(Math.cos(lockAngle) * 560, Math.sin(lockAngle) * 560);
@@ -7245,13 +7246,13 @@ class MainScene extends Phaser.Scene {
     const ty = 110;
 
     const tOuter = this.add
-      .circle(tx, ty, 40, 0x1a0004, 0.9)
-      .setStrokeStyle(3, 0xdc2626, 0.9)
+      .circle(tx, ty, 40, 0x160a24, 0.9)
+      .setStrokeStyle(3, 0xa855f7, 0.95)
       .setDepth(5);
 
     const tInner = this.add
-      .circle(tx, ty, 24, 0x090406, 1)
-      .setStrokeStyle(2, 0x94a3b8, 0.8)
+      .circle(tx, ty, 24, 0x090414, 1)
+      .setStrokeStyle(2, 0xe2e8f0, 0.85)
       .setBlendMode(Phaser.BlendModes.ADD)
       .setDepth(6);
 
@@ -7266,9 +7267,9 @@ class MainScene extends Phaser.Scene {
 
     const tParticles = this.add
       .particles(tx, ty, 'px', {
-        color: [0xdc2626, 0x991b1b, 0x94a3b8],
+        color: [0xa855f7, 0xc084fc, 0xe2e8f0],
         scale: { start: 2.2, end: 0 },
-        alpha: { start: 0.8, end: 0 },
+        alpha: { start: 0.85, end: 0 },
         speed: { min: 15, max: 45 },
         angle: { min: 0, max: 360 },
         lifespan: 700,
@@ -7278,10 +7279,10 @@ class MainScene extends Phaser.Scene {
       .setDepth(6);
 
     const tLabel = this.add
-      .text(tx, ty - 58, '[ Tainted Rift : Sacrifice 50% Max HP ]', {
+      .text(tx, ty - 58, '[ Gate of Slumber : Sacrifice 50% Max HP ]', {
         fontFamily: 'monospace',
         fontSize: '12px',
-        color: '#ef4444',
+        color: '#d8b4fe',
         stroke: '#000000',
         strokeThickness: 4,
       })
@@ -7330,6 +7331,10 @@ class MainScene extends Phaser.Scene {
     this.state.isAct2 = true;
     this.state.isAct2Waiting = false;
 
+    if (this.bloodEmitter) {
+      this.bloodEmitter.setParticleTint(isTainted ? [0xa855f7, 0xd8b4fe, 0x6b21a8] : 0xdc2626);
+    }
+
     if (this.act1BgGfx) {
       this.act1BgGfx.destroy();
       this.act1BgGfx = null;
@@ -7344,17 +7349,17 @@ class MainScene extends Phaser.Scene {
     // ★ 루트별 컬러 팔레트 세팅 (사후 황무지 vs 심해 르뤼에)
     const pal = isTainted
       ? {
-        bgHex: '#120f11',
-        bgNum: 0x120f11,
-        slab: 0x261a1c,
-        crack: 0x450a0a,
-        center: 0x7f1d1d,
-        pillarBg: 0x1c1214,
-        rune: 0xdc2626,
-        particles: [0x94a3b8, 0x64748b, 0xdc2626, 0xef4444], // 회색 재 + 붉은 불티
-        title: 'ACT II [TAINTED] : The Ashen Wasteland\nDEADLANDS',
-        titleColor: '#f87171',
-        guide: '🩸 [TAINTED ACT II] Your vitality is halved. Survive to claim Gamma Awakening.',
+        bgHex: '#0d0618',      // 깊은 심야 보라
+        bgNum: 0x0d0618,
+        slab: 0x24143a,        // 몽환의 석판
+        crack: 0x581c87,       // 자수정빛 균열선
+        center: 0xa855f7,      // 중앙 몽환 마법진
+        pillarBg: 0x170b29,
+        rune: 0xe2e8f0,        // 창백한 은빛 달빛 룬
+        particles: [0xe2e8f0, 0xc084fc, 0x818cf8, 0xf472b6], // 은빛 성운 + 보라 안개
+        title: 'ACT II [DREAMLANDS] : Unknown Kadath\nTHE DREAMLANDS',
+        titleColor: '#d8b4fe',
+        guide: '🌙 [THE DREAMLANDS] Half your vitality remains in the waking world. Survive for Gamma Awakening.',
       }
       : {
         bgHex: '#03090a',
@@ -7430,8 +7435,8 @@ class MainScene extends Phaser.Scene {
         color: pal.particles,
         scale: { start: 2.0, end: 0 },
         alpha: { start: 0.5, end: 0 },
-        speedX: isTainted ? { min: 25, max: 65 } : { min: -10, max: 10 },
-        speedY: isTainted ? { min: -10, max: 15 } : { min: -25, max: -8 },
+        speedX: isTainted ? { min: -18, max: 18 } : { min: -10, max: 10 },
+        speedY: isTainted ? { min: -22, max: 12 } : { min: -25, max: -8 },
         lifespan: { min: 2500, max: 4500 },
         frequency: 75,
         blendMode: 'ADD',
@@ -7440,7 +7445,7 @@ class MainScene extends Phaser.Scene {
 
     this.player.setPosition(cx, cy);
     this.physics.world.resume();
-    this.cameras.main.fadeIn(1000, isTainted ? 26 : 2, isTainted ? 0 : 6, isTainted ? 4 : 23);
+    this.cameras.main.fadeIn(1000, isTainted ? 13 : 2, isTainted ? 6 : 6, isTainted ? 24 : 23);
 
     this.initAct2Loop();
 
