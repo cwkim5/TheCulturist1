@@ -588,6 +588,7 @@ class MainScene extends Phaser.Scene {
 
           if (this.state.form === 'DAGON') {
             this.triggerDagonWave();
+            if (!bolt || !bolt.active || !bolt.body) return;
             bolt.isDeflected = true;
 
             // ★ 가장 가까운 살아있는 적 탐색 (없으면 날아오던 역방향으로 반사)
@@ -657,15 +658,15 @@ class MainScene extends Phaser.Scene {
       this.enemies,
       this.projectiles,
       (enemy, bolt) => {
-        if (bolt.isDeflected && enemy.active) {
-          // 튕겨낸 투사체는 카운터 취급(true)으로 막대한 데미지를 입힘
+        if (!bolt || !bolt.active || !enemy || !enemy.active) return;
+        if (bolt.isDeflected) {
           this.damageEnemy(
             enemy,
             90,
             Phaser.Math.Angle.Between(bolt.x, bolt.y, enemy.x, enemy.y),
             true
           );
-          bolt.destroy();
+          if (bolt && bolt.active) bolt.destroy(); // ★ 안전 체크 추가
         }
       },
       null,
@@ -2345,6 +2346,9 @@ class MainScene extends Phaser.Scene {
       enemy.destroy();
       return;
     } else {
+      if (enemy.isTaintedEnemy && Math.random() < 1 / 3) {
+        this.triggerUndeadLastStand(enemy.x, enemy.y, enemy.isBloodSniper);
+      }
       enemy.destroy();
     }
     this.state.kills++;
@@ -2359,6 +2363,86 @@ class MainScene extends Phaser.Scene {
     }
 
     this.time.delayedCall(50, () => this.checkWaveAcceleration());
+  }
+
+  triggerUndeadLastStand(x, y, isRanged) {
+    if (this.state.isGameOver) return;
+
+    // 1. 깨어나는 언데드 잔영 연출
+    const husk = this.add
+      .sprite(x, y, isRanged ? 'blood_sniper' : 'ashen_hound')
+      .setTint(0xef4444)
+      .setAlpha(0.75)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(13);
+
+    const lockAngle = Phaser.Math.Angle.Between(x, y, this.player.x, this.player.y);
+    husk.setRotation(lockAngle);
+
+    // 바닥 경고선 (근접: 140px 돌진 궤적 / 원거리: 480px 저격선)
+    const warnDist = isRanged ? 480 : 140;
+    const warnLine = this.add
+      .graphics()
+      .setDepth(4)
+      .lineStyle(isRanged ? 2 : 12, 0xff003c, isRanged ? 0.8 : 0.3)
+      .lineBetween(x, y, x + Math.cos(lockAngle) * warnDist, y + Math.sin(lockAngle) * warnDist);
+
+    // 2. 0.48초 뒤 최후의 공격 발동
+    this.time.delayedCall(480, () => {
+      warnLine.destroy();
+      if (this.state.isGameOver) {
+        husk.destroy();
+        return;
+      }
+
+      if (isRanged) {
+        // [원거리 언데드] 최후의 초고속 저격탄 발사 (패링/반사 가능!)
+        const bolt = this.projectiles.create(x, y, 'holy_bolt').setDepth(9);
+        bolt.setTint(0xff003c).setScale(1.4);
+        bolt.setVelocity(Math.cos(lockAngle) * 560, Math.sin(lockAngle) * 560);
+        this.time.delayedCall(2200, () => { if (bolt.active) bolt.destroy(); });
+
+        this.tweens.add({
+          targets: husk,
+          alpha: 0,
+          scale: 1.4,
+          duration: 220,
+          onComplete: () => husk.destroy(),
+        });
+      } else {
+        // [근접 언데드] 플레이어 방향으로 최후의 돌진 참격
+        const tx = x + Math.cos(lockAngle) * 140;
+        const ty = y + Math.sin(lockAngle) * 140;
+
+        this.tweens.add({
+          targets: husk,
+          x: tx,
+          y: ty,
+          alpha: 0,
+          duration: 180,
+          ease: 'Cubic.easeOut',
+          onComplete: () => husk.destroy(),
+        });
+
+        // 돌진 경로(중간점 & 끝점) 피격 및 패링 체크
+        const midX = (x + tx) / 2;
+        const midY = (y + ty) / 2;
+        const hitPlayer =
+          Phaser.Math.Distance.Between(midX, midY, this.player.x, this.player.y) <= 55 ||
+          Phaser.Math.Distance.Between(tx, ty, this.player.x, this.player.y) <= 45;
+
+        if (hitPlayer) {
+          if (this.state.isParrying) {
+            this.registerParrySuccess();
+            if (this.state.form === 'DAGON') this.triggerDagonWave();
+          } else if (!this.state.isDashing && !this.state.isInvulnerable) {
+            this.cameras.main.shake(150, 0.016);
+            this.cameras.main.flash(100, 200, 0, 0);
+            this.takeDamage(18);
+          }
+        }
+      }
+    });
   }
 
   collectBlood(player, orb) {
@@ -4326,8 +4410,8 @@ class MainScene extends Phaser.Scene {
       this.cameras.main.shake(160, isEcho ? 0.022 : 0.015);
     }
 
-    this.enemies.getChildren().forEach((enemy) => {
-      if (!enemy.active) return;
+    [...this.enemies.getChildren()].forEach((enemy) => {
+      if (!enemy || !enemy.active) return;
       const dist = Phaser.Math.Distance.Between(
         this.player.x,
         this.player.y,
@@ -5298,7 +5382,6 @@ class MainScene extends Phaser.Scene {
     this.boss.nextPatternTime = this.time.now + 2000;
 
     this.enemies.add(this.boss);
-
     // ★ 보스 몸통 박치기(돌진) 피격 및 패링 판정 (막타 null 크래시 방지 적용)
     this.physics.add.overlap(this.player, this.boss, () => {
       if (
@@ -5321,9 +5404,8 @@ class MainScene extends Phaser.Scene {
         this.registerParrySuccess();
         if (this.state.form === 'DAGON') this.triggerDagonWave();
 
-        if (!bolt || !bolt.active || !bolt.body) return;
+        if (!this.boss || !this.boss.active) return;
 
-        bolt.isDeflected = true;
         // ★ 니알라토텝으로 보스 돌진 패링 시 보스 등 뒤 안전거리로 도약 & 누적된 낙인 즉시 폭발!
         if (this.state.form === 'NYARLATHOTEP') {
           this.triggerNyarlaBlink(this.boss, false);
