@@ -188,6 +188,14 @@ class PreloadScene extends Phaser.Scene {
       .generateTexture('boss', 64, 64)
       .clear();
 
+    gfx
+      .fillStyle(0xffffff, 1)
+      .fillCircle(5, 5, 4)
+      .lineStyle(1.5, 0x67e8f9, 0.9)
+      .strokeCircle(5, 5, 4)
+      .generateTexture('dream_bolt', 10, 10)
+      .clear();
+
     // [Dreamlands 몹 1] 나이트건트 (Nightgaunt) - 얼굴 없는 검은 날개 추격자 (36x36)
     const ashGfx = this.make.graphics({ x: 0, y: 0, add: false });
     ashGfx.fillStyle(0x160f29, 1); // 칠흑빛 심야 보라 몸체
@@ -682,11 +690,11 @@ class MainScene extends Phaser.Scene {
         if (bolt.isDeflected) {
           this.damageEnemy(
             enemy,
-            90,
+            65, // ★ 기존 90 -> 65로 하향
             Phaser.Math.Angle.Between(bolt.x, bolt.y, enemy.x, enemy.y),
-            true
+            false // ★ 기존 true(3배 카운터) -> false로 변경 (270 -> 65)
           );
-          if (bolt && bolt.active) bolt.destroy(); // ★ 안전 체크 추가
+          if (bolt && bolt.active) bolt.destroy();
         }
       },
       null,
@@ -1070,11 +1078,47 @@ class MainScene extends Phaser.Scene {
     }
     // 7. THE FAITHLESS (무신앙자: 살의로 타오르는 역삼각형 형태의 핏빛 안광)
     else if (form === 'THE FAITHLESS') {
-      this.playerEyeGfx.fillStyle(0xffffff, 1); // 붉은 몸체 대비 순백의 살기
-      const e1 = getPos(6, -3);
-      const e2 = getPos(6, 3);
-      this.playerEyeGfx.fillRect(e1.x - 1, e1.y - 1.5, 3, 3);
-      this.playerEyeGfx.fillRect(e2.x - 1, e2.y - 1.5, 3, 3);
+      const isGamma = this.state.awakeningPath === 'GAMMA';
+
+      if (isGamma) {
+        // ★ [감마 전용] 양옆에서 앞쪽으로 날카롭게 휘어지는 검붉은 악마 뿔 2자루
+        const drawHorn = (side) => {
+          const base1 = getPos(2, side * 11);
+          const base2 = getPos(-3, side * 13);
+          const mid = getPos(8, side * 20);
+          const tip = getPos(19, side * 15); // 앞쪽을 향해 굽은 뿔 끝
+
+          this.playerEyeGfx.fillStyle(0x450a0a, 1);
+          this.playerEyeGfx.lineStyle(2, 0xef4444, 1);
+          this.playerEyeGfx.beginPath();
+          this.playerEyeGfx.moveTo(base1.x, base1.y);
+          this.playerEyeGfx.lineTo(mid.x, mid.y);
+          this.playerEyeGfx.lineTo(tip.x, tip.y);
+          this.playerEyeGfx.lineTo(base2.x, base2.y);
+          this.playerEyeGfx.closePath();
+          this.playerEyeGfx.fillPath();
+          this.playerEyeGfx.strokePath();
+        };
+        drawHorn(-1); // 왼쪽 뿔
+        drawHorn(1);  // 오른쪽 뿔
+
+        // 살인마 특유의 날카롭게 찢어진 핏빛+백색 안광
+        const l1 = getPos(4, -6), l2 = getPos(9, -2);
+        const r1 = getPos(4, 6), r2 = getPos(9, 2);
+        this.playerEyeGfx.lineStyle(3.5, 0xff003c, 0.9);
+        this.playerEyeGfx.lineBetween(l1.x, l1.y, l2.x, l2.y);
+        this.playerEyeGfx.lineBetween(r1.x, r1.y, r2.x, r2.y);
+        this.playerEyeGfx.lineStyle(1.5, 0xffffff, 1);
+        this.playerEyeGfx.lineBetween(l1.x, l1.y, l2.x, l2.y);
+        this.playerEyeGfx.lineBetween(r1.x, r1.y, r2.x, r2.y);
+      } else {
+        // 기존 무신앙자 안광 유지
+        this.playerEyeGfx.fillStyle(0xffffff, 1);
+        const e1 = getPos(6, -3);
+        const e2 = getPos(6, 3);
+        this.playerEyeGfx.fillRect(e1.x - 1, e1.y - 1.5, 3, 3);
+        this.playerEyeGfx.fillRect(e2.x - 1, e2.y - 1.5, 3, 3);
+      }
     } else if (form === 'CTHUGHA') {
       // lx: 앞쪽 거리, ly: 좌우 거리
       // 왼쪽 눈 (뒤쪽/바깥쪽에서 앞쪽/안쪽으로 찢어진 \ 형태)
@@ -1494,240 +1538,114 @@ class MainScene extends Phaser.Scene {
     this.state.slashes++;
     this.updateHUD();
 
-    // 1. 노덴스 히든 해금 카운트 (0킬 상태에서 허공 베기 100회)
-    if (this.state.form === 'MORTAL CULTIST' && this.state.kills === 0) {
-      this.state.emptySlashes++;
-
-      if (this.state.emptySlashes % 25 === 0 && this.state.emptySlashes < 100) {
-        const step = this.state.emptySlashes / 25;
-        this.cameras.main.shake(120 * step, 0.005 * step);
-
-        const mouseWorld = this.cameras.main.getWorldPoint(
-          this.input.activePointer.x,
-          this.input.activePointer.y
-        );
-        for (let i = 0; i < step * 2; i++) {
-          const crack = this.add
-            .circle(
-              mouseWorld.x + Phaser.Math.Between(-15, 15),
-              mouseWorld.y + Phaser.Math.Between(-15, 15),
-              2 + step,
-              0xe2e8f0,
-              0.9
-            )
-            .setDepth(15);
-
-          this.tweens.add({
-            targets: crack,
-            scaleX: 4,
-            scaleY: 0.2,
-            rotation: Phaser.Math.FloatBetween(-Math.PI, Math.PI),
-            alpha: 0,
-            duration: 350,
-            onComplete: () => crack.destroy(),
-          });
-        }
-      }
-
-      if (this.state.emptySlashes >= 100) {
-        this.awakenNodens();
-        this.state.canSlash = true; // 안전장치
-        return;
-      }
+    // 1. 노덴스 히든 해금 체크 (각성 시 즉시 종료)
+    if (this.checkNodensUnlock()) {
+      this.state.canSlash = true;
+      return;
     }
 
     const angle = this.getAimAngle();
 
-    // 2. 제단 타격 판정 (1막 신격 제단 & 2막 베타/감마 제단 공용)
+    // 2. 제단 타격 판정
+    this.checkShrineInteraction();
+
+    // 3. 노덴스 전용 4단 콤보 (독자적인 쿨다운 사용)
+    if (this.state.form === 'NODENS') {
+      this.slashNodens(angle);
+      return;
+    }
+
+    // 4. 공통 런지(돌진/반동) 및 초승달 궤적 + 기본 폼 판정
+    const form = this.state.form;
+    const isNyarlaChaos = form === 'NYARLATHOTEP' && this.state.isChaos;
+    const usesStandardHit = form !== 'THE FAITHLESS' && form !== 'CTHUGHA';
+    const isFaithlessGamma = form === 'THE FAITHLESS' && this.state.awakeningPath === 'GAMMA';
+
+    this.applySlashLunge(angle, form);
+    if (!isFaithlessGamma) {
+      this.playCrescentSlash(angle, usesStandardHit);
+    }
+
+    // 5. 폼별 특수 공격 라우팅
+    if (form === 'CTHULHU') this.slashCthulhu(angle);
+    else if (isFaithlessGamma) this.slashFaithlessGammaWhip(angle); // ★ 감마 전용 채찍!
+    else if (form === 'THE FAITHLESS') this.slashFaithless(angle);
+    else if (form === 'CTHUGHA') this.slashCthugha(angle);
+    else if (isNyarlaChaos) this.playNyarlaChaosClaw(angle);
+
+    // 6. 공격 쿨다운 복구
+    const cd =
+      form === 'THE FAITHLESS' || isNyarlaChaos
+        ? GAME_CONFIG.PLAYER.DAGGER_COOLDOWN * 0.62
+        : GAME_CONFIG.PLAYER.DAGGER_COOLDOWN;
+
+    this.time.delayedCall(cd, () => {
+      this.state.canSlash = true;
+    });
+  }
+
+  checkNodensUnlock() {
+    if (this.state.form !== 'MORTAL CULTIST' || this.state.kills !== 0) return false;
+    this.state.emptySlashes++;
+
+    if (this.state.emptySlashes % 25 === 0 && this.state.emptySlashes < 100) {
+      const step = this.state.emptySlashes / 25;
+      this.cameras.main.shake(120 * step, 0.005 * step);
+
+      const mouseWorld = this.cameras.main.getWorldPoint(
+        this.input.activePointer.x,
+        this.input.activePointer.y
+      );
+      for (let i = 0; i < step * 2; i++) {
+        const crack = this.add
+          .circle(
+            mouseWorld.x + Phaser.Math.Between(-15, 15),
+            mouseWorld.y + Phaser.Math.Between(-15, 15),
+            2 + step,
+            0xe2e8f0,
+            0.9
+          )
+          .setDepth(15);
+
+        this.tweens.add({
+          targets: crack,
+          scaleX: 4,
+          scaleY: 0.2,
+          rotation: Phaser.Math.FloatBetween(-Math.PI, Math.PI),
+          alpha: 0,
+          duration: 350,
+          onComplete: () => crack.destroy(),
+        });
+      }
+    }
+
+    if (this.state.emptySlashes >= 100) {
+      this.awakenNodens();
+      return true;
+    }
+    return false;
+  }
+
+  checkShrineInteraction() {
     this.shrines.getChildren().forEach((s) => {
       if (
         Phaser.Math.Distance.Between(this.player.x, this.player.y, s.x, s.y) <=
         GAME_CONFIG.PLAYER.DAGGER_RANGE + 25
       ) {
-        if (s.tierType) {
-          this.triggerTier2Evolution(s.tierType);
-        } else if (s.godType) {
-          this.triggerGruesomeEvolution(s.godType);
-        }
+        if (s.tierType) this.triggerTier2Evolution(s.tierType);
+        else if (s.godType) this.triggerGruesomeEvolution(s.godType);
       }
     });
+  }
 
-    // =========================================================================
-    // ★ [1순위 분기] 노덴스 (NODENS) 전용 3~4단 차원 절단 콤보
-    // =========================================================================
-    if (this.state.form === 'NODENS') {
-      if (this.state.comboTimer) this.state.comboTimer.remove();
-      this.state.comboStep = (this.state.comboStep || 0) + 1;
-      let currentCooldown = 280;
-
-      this.player.isLunging = true;
-      this.player.setVelocity(Math.cos(angle) * 240, Math.sin(angle) * 240);
-      this.time.delayedCall(80, () => {
-        if (this.player) this.player.isLunging = false;
-      });
-
-      if (this.state.comboStep === 1) {
-        currentCooldown = 280;
-        const slashX = this.player.x + Math.cos(angle) * 50;
-        const slashY = this.player.y + Math.sin(angle) * 50;
-        const rift = this.add
-          .rectangle(slashX, slashY, 120, 6, 0x38bdf8, 1)
-          .setRotation(angle + Math.PI / 2)
-          .setBlendMode(Phaser.BlendModes.ADD)
-          .setDepth(14);
-
-        this.tweens.add({
-          targets: rift,
-          scaleX: 1.5,
-          alpha: 0,
-          duration: 150,
-          onComplete: () => rift.destroy(),
-        });
-        this.applyAreaDamage(slashX, slashY, 75, angle, 45);
-      } else if (this.state.comboStep === 2) {
-        currentCooldown = 340;
-        const thrustX = this.player.x + Math.cos(angle) * 80;
-        const thrustY = this.player.y + Math.sin(angle) * 80;
-        const thrust = this.add
-          .rectangle(thrustX, thrustY, 160, 5, 0xe2e8f0, 1)
-          .setRotation(angle)
-          .setBlendMode(Phaser.BlendModes.ADD)
-          .setDepth(14);
-
-        this.tweens.add({
-          targets: thrust,
-          scaleX: 1.8,
-          alpha: 0,
-          duration: 180,
-          onComplete: () => thrust.destroy(),
-        });
-        this.applyAreaDamage(thrustX, thrustY, 65, angle, 65);
-      } else if (this.state.comboStep === 3) {
-        const isBeta = this.state.awakeningPath === 'BETA';
-        currentCooldown = isBeta ? 360 : this.state.isExAwakened ? 560 : 680;
-        if (this.state.isAct2) this.state.gammaProgress++;
-        if (!isBeta) this.state.comboStep = 0;
-
-        this.player.x += Math.cos(angle) * 40;
-        this.player.y += Math.sin(angle) * 40;
-        this.cameras.main.shake(150, 0.012);
-
-        const waveAngles = this.state.isExAwakened
-          ? [angle - 0.28, angle, angle + 0.28]
-          : [angle];
-
-        waveAngles.forEach((wAngle, idx) => {
-          const isCenter = idx === 1 || waveAngles.length === 1;
-          const projectile = this.add
-            .rectangle(
-              this.player.x,
-              this.player.y,
-              isCenter ? 155 : 125,
-              12,
-              isCenter ? 0x38bdf8 : 0x7dd3fc,
-              1
-            )
-            .setRotation(wAngle + Math.PI / 2)
-            .setBlendMode(Phaser.BlendModes.ADD)
-            .setDepth(14);
-
-          this.tweens.add({
-            targets: projectile,
-            x: projectile.x + Math.cos(wAngle) * 290,
-            y: projectile.y + Math.sin(wAngle) * 290,
-            alpha: 0,
-            scaleY: 2.2,
-            duration: 380,
-            ease: 'Cubic.easeOut',
-            onComplete: () => projectile.destroy(),
-          });
-
-          const hitX = this.player.x + Math.cos(wAngle) * 145;
-          const hitY = this.player.y + Math.sin(wAngle) * 145;
-          this.applyAreaDamage(hitX, hitY, 140, wAngle, isCenter ? 110 : 55);
-        });
-      } else if (this.state.comboStep >= 4) {
-        currentCooldown = 620;
-        this.state.comboStep = 0;
-
-        this.cameras.main.shake(220, 0.02);
-        this.cameras.main.flash(120, 56, 189, 248);
-
-        const startX = this.player.x;
-        const startY = this.player.y;
-        const travelDist = 340;
-        const targetX = startX + Math.cos(angle) * travelDist;
-        const targetY = startY + Math.sin(angle) * travelDist;
-
-        [-Math.PI / 4, Math.PI / 4].forEach((crossOffset) => {
-          const blade = this.add
-            .rectangle(startX, startY, 175, 10, 0xe0f2fe, 0.95)
-            .setStrokeStyle(2, 0x38bdf8, 1)
-            .setRotation(angle + crossOffset)
-            .setBlendMode(Phaser.BlendModes.ADD)
-            .setDepth(15);
-
-          this.tweens.add({
-            targets: blade,
-            x: targetX,
-            y: targetY,
-            scaleX: 1.45,
-            scaleY: 1.8,
-            alpha: 0,
-            duration: 420,
-            ease: 'Cubic.easeOut',
-            onComplete: () => blade.destroy(),
-          });
-        });
-
-        this.applyAreaDamage(
-          startX + Math.cos(angle) * 70,
-          startY + Math.sin(angle) * 70,
-          135,
-          angle,
-          85
-        );
-        this.time.delayedCall(140, () => {
-          if (!this.state.isGameOver) {
-            this.applyAreaDamage(
-              startX + Math.cos(angle) * 210,
-              startY + Math.sin(angle) * 210,
-              155,
-              angle,
-              105
-            );
-          }
-        });
-      }
-
-      this.time.delayedCall(currentCooldown, () => {
-        this.state.canSlash = true;
-      });
-
-      if (this.state.comboStep > 0) {
-        this.state.comboTimer = this.time.delayedCall(900, () => {
-          this.state.comboStep = 0;
-        });
-      }
-      return;
-    }
-
-    // =========================================================================
-    // [공통 상태 플래그 & 런지 처리]
-    // =========================================================================
-    const form = this.state.form;
-    const isNyarlaChaos = form === 'NYARLATHOTEP' && this.state.isChaos;
-    const isNyarlaBeta = form === 'NYARLATHOTEP' && this.state.awakeningPath === 'BETA';
-    const usesStandardDaggerHit = form !== 'THE FAITHLESS' && form !== 'CTHUGHA';
-
+  applySlashLunge(angle, form) {
+    this.player.isLunging = true;
     if (form === 'CTHUGHA') {
-      this.player.isLunging = true;
       this.player.setVelocity(Math.cos(angle + Math.PI) * 350, Math.sin(angle + Math.PI) * 350);
       this.time.delayedCall(120, () => {
         if (this.player) this.player.isLunging = false;
       });
     } else {
-      this.player.isLunging = true;
       const mult = form === 'THE FAITHLESS' ? 1.5 : 1.0;
       this.player.setVelocity(
         Math.cos(angle) * GAME_CONFIG.PLAYER.LUNGE_SPEED * mult,
@@ -1737,18 +1655,141 @@ class MainScene extends Phaser.Scene {
         if (this.player) this.player.isLunging = false;
       });
     }
+  }
 
-    // =========================================================================
-    // [초승달 단검 궤적 그래픽 + 기본 폼 지속 판정(Active Frames)]
-    // =========================================================================
+  slashFaithlessGammaWhip(angle) {
+    const maxRange = 245;
+    const hitEnemies = new Set(); // 클릭 1회당 동일 적 중복 타격 방지 (밸런스 유지)
+
+    // 1. 배경에 깔리는 반투명 핏빛 부채꼴 잔상 (공격 범위 볼륨감 확보)
+    const fanGfx = this.add.graphics().setDepth(13).setBlendMode(Phaser.BlendModes.ADD);
+    fanGfx.fillStyle(0x991b1b, 0.22);
+    fanGfx.slice(this.player.x, this.player.y, maxRange, angle - 0.85, angle + 0.85, false);
+    fanGfx.fillPath();
+    this.tweens.add({
+      targets: fanGfx,
+      alpha: 0,
+      duration: 200,
+      ease: 'Quad.easeOut',
+      onComplete: () => fanGfx.destroy(),
+    });
+
+    // 2. 3가닥 혈뢰 채찍이 엇갈리며 난도질 (좌상 -> 우하 -> 정면 교차)
+    const lashOffsets = [-0.52, 0.52, Phaser.Math.FloatBetween(-0.18, 0.18)];
+    const curveDirs = [1, -1, Phaser.Math.RND.pick([-1, 1])];
+
+    lashOffsets.forEach((offset, idx) => {
+      this.time.delayedCall(idx * 42, () => {
+        if (!this.player || !this.player.active || this.state.isGameOver) return;
+
+        const sx = this.player.x;
+        const sy = this.player.y;
+        const lashAngle = angle + offset;
+        const perpAngle = lashAngle + Math.PI / 2;
+        const lashLen = maxRange * Phaser.Math.FloatBetween(0.92, 1.05);
+        const segments = 8;
+
+        // 지그재그 혈뢰 마디 좌표 생성
+        const pts = [{ x: sx, y: sy }];
+        for (let i = 1; i <= segments; i++) {
+          const t = i / segments;
+          const r = t * lashLen;
+          const bend = Math.sin(t * Math.PI) * 26 * curveDirs[idx]; // 채찍 휘어짐
+          const jitter = i === segments ? 0 : Phaser.Math.Between(-14, 14) * (0.4 + t * 0.6); // 하스터식 번개 굴곡
+          const perp = bend + jitter;
+
+          pts.push({
+            x: sx + Math.cos(lashAngle) * r + Math.cos(perpAngle) * perp,
+            y: sy + Math.sin(lashAngle) * r + Math.sin(perpAngle) * perp,
+          });
+        }
+
+        const lashGfx = this.add.graphics().setDepth(14).setBlendMode(Phaser.BlendModes.ADD);
+        const drawPath = (width, color, alpha) => {
+          lashGfx.lineStyle(width, color, alpha);
+          lashGfx.beginPath();
+          pts.forEach((pt, i) => (i === 0 ? lashGfx.moveTo(pt.x, pt.y) : lashGfx.lineTo(pt.x, pt.y)));
+          lashGfx.strokePath();
+        };
+
+        // 반투명 3중 발광 레이어 (넓은 혈기 -> 선혈 -> 날카로운 백색 핵)
+        drawPath(16, 0x7f1d1d, 0.32);
+        drawPath(7, 0xff003c, 0.62);
+        drawPath(2, 0xfecaca, 0.85);
+
+        // 채찍 끝단 X자 찢김 섬광
+        const tip = pts[pts.length - 1];
+        lashGfx.lineStyle(2, 0xff003c, 0.75);
+        lashGfx.lineBetween(tip.x - 14, tip.y - 14, tip.x + 14, tip.y + 14);
+        lashGfx.lineBetween(tip.x + 14, tip.y - 14, tip.x - 14, tip.y + 14);
+
+        this.tweens.add({
+          targets: lashGfx,
+          alpha: 0,
+          duration: 185,
+          ease: 'Cubic.easeOut',
+          onComplete: () => lashGfx.destroy(),
+        });
+
+        if (idx === 0) this.cameras.main.shake(80, 0.007);
+
+        // ★ 3가닥이 나가는 동안 부채꼴 범위 내 적 판정
+        [...this.enemies.getChildren()].forEach((e) => {
+          if (!e.active || hitEnemies.has(e)) return;
+
+          const dist = Phaser.Math.Distance.Between(sx, sy, e.x, e.y);
+          const enemyAngle = Phaser.Math.Angle.Between(sx, sy, e.x, e.y);
+          const angleDiff = Math.abs(Phaser.Math.Angle.Wrap(enemyAngle - angle));
+
+          if (dist <= maxRange + (e.isBoss ? 28 : 14) && angleDiff <= 0.85) {
+            hitEnemies.add(e);
+
+            const isTipHit = dist >= 150;
+            const dmg = isTipHit ? 78 : 58;
+            this.damageEnemy(e, dmg, enemyAngle, e.isWindingUp);
+
+            if (isTipHit) {
+              this.bloodEmitter.explode(20, e.x, e.y);
+              const crack = this.add
+                .circle(e.x, e.y, 12, 0xff003c, 0.55)
+                .setStrokeStyle(2, 0xfecaca, 0.9)
+                .setBlendMode(Phaser.BlendModes.ADD)
+                .setDepth(15);
+              this.tweens.add({
+                targets: crack,
+                scale: 2.5,
+                alpha: 0,
+                duration: 160,
+                onComplete: () => crack.destroy(),
+              });
+            }
+
+            // 흡혈
+            if (Phaser.Math.Between(1, 100) <= 14 && this.state.hp < this.state.maxHp) {
+              this.state.hp = Math.min(this.state.maxHp, this.state.hp + 2);
+              this.updateHUD();
+            }
+          }
+        });
+      });
+    });
+  }
+
+  playCrescentSlash(angle, usesStandardHit) {
+    const form = this.state.form;
+    const isNyarlaChaos = form === 'NYARLATHOTEP' && this.state.isChaos;
+    const isNyarlaBeta = form === 'NYARLATHOTEP' && this.state.awakeningPath === 'BETA';
+
     const now = this.time.now;
     if (this.lastSlashTime && now - this.lastSlashTime < 600) {
-      this.slashDir = (this.slashDir || 1) * -1;
+      this.slashCombo = ((this.slashCombo || 0) % 3) + 1; // 1 -> 2 -> 3 -> 1 순환
     } else {
-      this.slashDir = 1;
+      this.slashCombo = 1;
     }
     this.lastSlashTime = now;
-    const dir = this.slashDir;
+
+    const isWildSlash = this.slashCombo === 3; // ★ 3타째에 양방향 난도질 발동!
+    const dir = this.slashCombo === 2 ? -1 : 1;
 
     const COLOR_MAP = {
       HASTUR: { fill: 0xfacc15, edge: 0x78350f },
@@ -1757,10 +1798,7 @@ class MainScene extends Phaser.Scene {
       CTHUGHA: { fill: 0xf97316, edge: 0x7c2d12 },
       'THE FAITHLESS': { fill: 0xef4444, edge: 0x111827 },
     };
-    const { fill: color, edge: edgeColor } = COLOR_MAP[form] || {
-      fill: 0xffffff,
-      edge: 0x111827,
-    };
+    const { fill: color, edge: edgeColor } = COLOR_MAP[form] || { fill: 0xffffff, edge: 0x111827 };
 
     const slashGfx = this.add.graphics().setDepth(12);
     const halfArc = Phaser.Math.DegToRad(GAME_CONFIG.PLAYER.DAGGER_ARC_DEG / 2) * 1.15;
@@ -1777,7 +1815,6 @@ class MainScene extends Phaser.Scene {
       onUpdate: (tween) => {
         if (!slashGfx.active) return;
         const p = tween.getValue();
-
         const headT = Phaser.Math.Clamp(p * 3.5, 0, 1);
         const tailT = Phaser.Math.Clamp((p - 0.15) / 0.85, 0, 1);
 
@@ -1787,64 +1824,36 @@ class MainScene extends Phaser.Scene {
         const currentThick = maxThickness * (1 - Math.pow(p, 1.3));
         const points = [];
 
-        // 바깥쪽 큰 곡선 (dir === -1일 때 안쪽 곡선과 교차하며 난도질 벡터 모션 연출)
         for (let i = 0; i <= segments; i++) {
           const localT = i / segments;
           const t = Phaser.Math.Linear(tailT, headT, localT);
-          const sweepT = dir === 1 ? t : 1 - t;
+          const sweepT = isWildSlash ? 1 - t : (dir === 1 ? t : 1 - t);
           const a = angle - halfArc + sweepT * (halfArc * 2);
           const r = range * (0.95 + Math.sin(t * Math.PI) * 0.1);
-          points.push(
-            new Phaser.Math.Vector2(
-              this.player.x + Math.cos(a) * r,
-              this.player.y + Math.sin(a) * r
-            )
-          );
+          points.push(new Phaser.Math.Vector2(this.player.x + Math.cos(a) * r, this.player.y + Math.sin(a) * r));
         }
 
-        // 안쪽 곡선
+        // 안쪽 곡선 (★ 3타일 때만 바깥쪽과 반대로 교차하며 양방향 난도질 연출!)
         for (let i = segments; i >= 0; i--) {
           const localT = i / segments;
           const t = Phaser.Math.Linear(tailT, headT, localT);
-          const a = angle - halfArc + t * (halfArc * 2);
+          const sweepT = isWildSlash ? t : (dir === 1 ? t : 1 - t);
+          const a = angle - halfArc + sweepT * (halfArc * 2);
           const crescent = Math.sin(localT * Math.PI);
           const outerR = range * (0.95 + Math.sin(t * Math.PI) * 0.1);
           const r = Math.max(0, outerR - crescent * currentThick);
-          points.push(
-            new Phaser.Math.Vector2(
-              this.player.x + Math.cos(a) * r,
-              this.player.y + Math.sin(a) * r
-            )
-          );
+          points.push(new Phaser.Math.Vector2(this.player.x + Math.cos(a) * r, this.player.y + Math.sin(a) * r));
         }
 
-        slashGfx
-          .fillStyle(color, 1)
-          .fillPoints(points, true)
-          .lineStyle(2, edgeColor, 1)
-          .strokePoints(points, true);
+        slashGfx.fillStyle(color, 1).fillPoints(points, true).lineStyle(2, edgeColor, 1).strokePoints(points, true);
 
-        // ★ 기본/하스터/니알라/크툴루 실시간 지속 판정 (중복 타격 방지)
-        if (usesStandardDaggerHit && p <= 0.65) {
-          const targets = [...this.enemies.getChildren()];
-          targets.forEach((enemy) => {
+        if (usesStandardHit && p <= 0.65) {
+          [...this.enemies.getChildren()].forEach((enemy) => {
             if (!enemy.active || hitEnemies.has(enemy)) return;
 
-            const dist = Phaser.Math.Distance.Between(
-              this.player.x,
-              this.player.y,
-              enemy.x,
-              enemy.y
-            );
+            const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, enemy.x, enemy.y);
             const diff = Math.abs(
-              Phaser.Math.Angle.Wrap(
-                Phaser.Math.Angle.Between(
-                  this.player.x,
-                  this.player.y,
-                  enemy.x,
-                  enemy.y
-                ) - angle
-              )
+              Phaser.Math.Angle.Wrap(Phaser.Math.Angle.Between(this.player.x, this.player.y, enemy.x, enemy.y) - angle)
             );
 
             const chaosRangeBonus = isNyarlaBeta ? 48 : isNyarlaChaos ? 25 : 0;
@@ -1855,213 +1864,301 @@ class MainScene extends Phaser.Scene {
 
             if (dist <= effectiveRange && diff <= effectiveArc) {
               hitEnemies.add(enemy);
-
               const isCounter = enemy.isWindingUp;
               const hitDir = form === 'HASTUR' ? null : angle;
 
-              this.damageEnemy(
-                enemy,
-                GAME_CONFIG.PLAYER.DAGGER_DAMAGE,
-                hitDir,
-                isCounter
-              );
+              this.damageEnemy(enemy, GAME_CONFIG.PLAYER.DAGGER_DAMAGE, hitDir, isCounter);
 
               if (form === 'HASTUR' && enemy.active) {
                 this.addShockStack(enemy, 1);
-                if (this.state.isExAwakened) {
-                  this.triggerHasturSlashChain(enemy);
-                }
+                if (this.state.isExAwakened) this.triggerHasturSlashChain(enemy);
               }
 
               if (form === 'NYARLATHOTEP' && enemy.active) {
-                const stackAmt = isNyarlaBeta ? 3 : isNyarlaChaos ? 2 : 1;
-                this.addChaosMark(enemy, stackAmt);
-                if (isCounter) {
-                  this.triggerNyarlaBlink(enemy, false);
-                }
+                this.addChaosMark(enemy, isNyarlaBeta ? 3 : isNyarlaChaos ? 2 : 1);
+                if (isCounter) this.triggerNyarlaBlink(enemy, false);
               }
             }
           });
         }
       },
-      onComplete: () => {
-        slashGfx.destroy();
-      },
+      onComplete: () => slashGfx.destroy(),
+    });
+  }
+
+  slashNodens(angle) {
+    if (this.state.comboTimer) this.state.comboTimer.remove();
+    this.state.comboStep = (this.state.comboStep || 0) + 1;
+    let currentCooldown = 280;
+
+    this.player.isLunging = true;
+    this.player.setVelocity(Math.cos(angle) * 240, Math.sin(angle) * 240);
+    this.time.delayedCall(80, () => {
+      if (this.player) this.player.isLunging = false;
     });
 
-    // =========================================================================
-    // [폼별 특수 추가 공격 & 전용 판정]
-    // =========================================================================
-    if (form === 'CTHULHU') {
-      const isBeta = this.state.awakeningPath === 'BETA';
-      const cthulhuCd = isBeta ? 1150 : this.state.isExAwakened ? 1400 : 2000;
-      const bonusShots = Math.floor(this.state.kills / 25);
-      const totalShots = Math.min(1 + bonusShots + (this.state.isExAwakened ? 2 : 0), 5);
-
-      if (!this.lastCthulhuSpitTime || now - this.lastCthulhuSpitTime >= cthulhuCd) {
-        this.lastCthulhuSpitTime = now;
-        for (let b = 0; b < totalShots; b++) {
-          this.time.delayedCall(b * 90, () => {
-            if (this.player && this.player.active) {
-              const spread = (Math.random() - 0.5) * (0.15 + totalShots * 0.05);
-              this.fireCthulhuTendril(angle + spread, b === 0);
-            }
-          });
-        }
-      }
-    } else if (form === 'THE FAITHLESS') {
-      const isBeta = this.state.awakeningPath === 'BETA';
-      const isGamma = this.state.awakeningPath === 'GAMMA';
-      const isOmega = this.state.awakeningTier >= 3;
-
-      const slashX = this.player.x + Math.cos(angle) * 48;
-      const slashY = this.player.y + Math.sin(angle) * 48;
-
-      const slash1 = this.add.ellipse(slashX, slashY, 105, 32, 0xb91c1c, 1).setRotation(angle).setDepth(14);
-      this.tweens.add({ targets: slash1, scaleX: 1.45, scaleY: 2.3, alpha: 0, duration: 150, ease: 'Quad.easeOut', onComplete: () => slash1.destroy() });
-
-      if (this.state.isExAwakened) {
-        const slash2 = this.add.ellipse(slashX, slashY, 115, 26, 0xef4444, 0.9).setRotation(angle + Math.PI / 2.2).setBlendMode(Phaser.BlendModes.ADD).setDepth(15);
-        this.tweens.add({ targets: slash2, scaleX: 1.6, scaleY: 2.5, alpha: 0, duration: 170, ease: 'Quad.easeOut', onComplete: () => slash2.destroy() });
-      }
-
-      if (isBeta && this.state.awakeningTier >= 2) {
-        const bloodWave = this.add.ellipse(slashX, slashY, 130, 15, 0xdc2626, 0.9)
-          .setRotation(angle + Math.PI / 2).setBlendMode(Phaser.BlendModes.ADD).setDepth(14);
-        this.tweens.add({
-          targets: bloodWave,
-          x: slashX + Math.cos(angle) * 280,
-          y: slashY + Math.sin(angle) * 280,
-          scaleX: 1.8, scaleY: 2.5, alpha: 0,
-          duration: 350, ease: 'Cubic.easeOut',
-          onComplete: () => bloodWave.destroy(),
-        });
-        this.applyAreaDamage(slashX + Math.cos(angle) * 140, slashY + Math.sin(angle) * 140, 125, angle, 42);
-      }
-
-      if (isOmega && !isBeta) {
-        const bloodWave = this.add.ellipse(slashX, slashY, 150, 18, 0xef4444, 0.95)
-          .setRotation(angle + Math.PI / 2).setBlendMode(Phaser.BlendModes.ADD).setDepth(14);
-        this.tweens.add({
-          targets: bloodWave,
-          x: slashX + Math.cos(angle) * 350,
-          y: slashY + Math.sin(angle) * 350,
-          scaleX: 2.2, scaleY: 3.0, alpha: 0,
-          duration: 320, ease: 'Cubic.easeOut',
-          onComplete: () => bloodWave.destroy(),
-        });
-        this.applyAreaDamage(slashX + Math.cos(angle) * 175, slashY + Math.sin(angle) * 175, 180, angle, 85);
-      }
-
-      const hitRange = isGamma ? 98 : this.state.isExAwakened ? 82 : 68;
-      const baseDmg = isGamma ? 60 : this.state.isExAwakened ? 50 : 42;
-
-      const nearby = [...this.enemies.getChildren()];
-      nearby.forEach((e) => {
-        if (!e.active) return;
-        const effectiveRadius = hitRange + (e.isBoss ? 24 : 0);
-
-        if (Phaser.Math.Distance.Between(slashX, slashY, e.x, e.y) <= effectiveRadius) {
-          this.damageEnemy(e, baseDmg, angle, e.isWindingUp);
-
-          const healChance = isOmega ? 20 : isBeta ? 8 : isGamma ? 14 : 10;
-          const healAmt = isOmega ? 4 : isBeta ? 3 : 2;
-
-          if (Phaser.Math.Between(1, 100) <= healChance && this.state.hp < this.state.maxHp) {
-            this.state.hp = Math.min(this.state.maxHp, this.state.hp + healAmt);
-            this.updateHUD();
-          }
-
-          if (isOmega && this.triggerOmegaBloodCross) {
-            this.triggerOmegaBloodCross(e.x, e.y);
-          }
-        }
-      });
-    } else if (form === 'CTHUGHA') {
-      const cthughaRange = range + 43;
-
-      const flameWave = this.add
-        .ellipse(
-          this.player.x + Math.cos(angle) * 58,
-          this.player.y + Math.sin(angle) * 58,
-          96,
-          28,
-          0xf97316,
-          0.75
-        )
+    if (this.state.comboStep === 1) {
+      currentCooldown = 280;
+      const slashX = this.player.x + Math.cos(angle) * 50;
+      const slashY = this.player.y + Math.sin(angle) * 50;
+      const rift = this.add
+        .rectangle(slashX, slashY, 120, 6, 0x38bdf8, 1)
+        .setRotation(angle + Math.PI / 2)
+        .setBlendMode(Phaser.BlendModes.ADD)
+        .setDepth(14);
+      this.tweens.add({ targets: rift, scaleX: 1.5, alpha: 0, duration: 150, onComplete: () => rift.destroy() });
+      this.applyAreaDamage(slashX, slashY, 75, angle, 45);
+    } else if (this.state.comboStep === 2) {
+      currentCooldown = 340;
+      const thrustX = this.player.x + Math.cos(angle) * 80;
+      const thrustY = this.player.y + Math.sin(angle) * 80;
+      const thrust = this.add
+        .rectangle(thrustX, thrustY, 160, 5, 0xe2e8f0, 1)
         .setRotation(angle)
         .setBlendMode(Phaser.BlendModes.ADD)
-        .setDepth(13);
+        .setDepth(14);
+      this.tweens.add({ targets: thrust, scaleX: 1.8, alpha: 0, duration: 180, onComplete: () => thrust.destroy() });
+      this.applyAreaDamage(thrustX, thrustY, 65, angle, 65);
+    } else if (this.state.comboStep === 3) {
+      const isBeta = this.state.awakeningPath === 'BETA';
+      currentCooldown = isBeta ? 360 : this.state.isExAwakened ? 560 : 680;
+      if (!isBeta) this.state.comboStep = 0;
 
-      this.tweens.add({
-        targets: flameWave,
-        scaleX: 1.35,
-        scaleY: 1.8,
-        alpha: 0,
-        duration: 140,
-        onComplete: () => flameWave.destroy(),
-      });
+      this.player.x += Math.cos(angle) * 40;
+      this.player.y += Math.sin(angle) * 40;
+      this.cameras.main.shake(150, 0.012);
 
-      const targets = [...this.enemies.getChildren()];
-      targets.forEach((e) => {
-        if (!e.active) return;
-        const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, e.x, e.y);
-        const enemyAngle = Phaser.Math.Angle.Between(this.player.x, this.player.y, e.x, e.y);
-        const diff = Math.abs(Phaser.Math.Angle.Wrap(enemyAngle - angle));
-
-        if (dist <= cthughaRange + (e.isBoss ? 28 : 0) && diff <= halfArc + 0.28) {
-          const isCounter = e.isWindingUp;
-          const wasBurning = e.isBurning;
-          const ex = e.x;
-          const ey = e.y;
-
-          this.damageEnemy(e, GAME_CONFIG.PLAYER.DAGGER_DAMAGE, enemyAngle, isCounter);
-
-          if (wasBurning) {
-            this.triggerCthughaRing({ active: true, x: ex, y: ey });
-            if (this.state.isExAwakened && Math.random() < 0.3) {
-              this.spawnCthughaFireZone(ex, ey);
-            }
-          }
-
-          if (e.active) {
-            this.applyBurn(e);
-          }
-        }
-      });
-    } else if (isNyarlaChaos) {
-      // ★ 니알라토텝 폭주 시 추가 참격 이펙트 (타격 판정은 위 addCounter에서 이미 처리됨)
-      const reachOffset = isNyarlaBeta ? 75 : 58;
-      const mawX = this.player.x + Math.cos(angle) * reachOffset;
-      const mawY = this.player.y + Math.sin(angle) * reachOffset;
-
-      [-0.35, 0.35].forEach((slashAngle) => {
-        const claw = this.add
-          .ellipse(mawX, mawY, isNyarlaBeta ? 140 : 110, isNyarlaBeta ? 22 : 18, 0xc084fc, 0.9)
-          .setRotation(angle + slashAngle)
+      const waveAngles = this.state.isExAwakened ? [angle - 0.28, angle, angle + 0.28] : [angle];
+      waveAngles.forEach((wAngle, idx) => {
+        const isCenter = idx === 1 || waveAngles.length === 1;
+        const projectile = this.add
+          .rectangle(this.player.x, this.player.y, isCenter ? 155 : 125, 12, isCenter ? 0x38bdf8 : 0x7dd3fc, 1)
+          .setRotation(wAngle + Math.PI / 2)
           .setBlendMode(Phaser.BlendModes.ADD)
           .setDepth(14);
+
         this.tweens.add({
-          targets: claw,
-          scaleX: isNyarlaBeta ? 1.6 : 1.4,
-          scaleY: 0.2,
+          targets: projectile,
+          x: projectile.x + Math.cos(wAngle) * 290,
+          y: projectile.y + Math.sin(wAngle) * 290,
           alpha: 0,
-          duration: 160,
-          onComplete: () => claw.destroy(),
+          scaleY: 2.2,
+          duration: 380,
+          ease: 'Cubic.easeOut',
+          onComplete: () => projectile.destroy(),
         });
+        this.applyAreaDamage(
+          this.player.x + Math.cos(wAngle) * 145,
+          this.player.y + Math.sin(wAngle) * 145,
+          140,
+          wAngle,
+          isCenter ? 110 : 55
+        );
+      });
+    } else if (this.state.comboStep >= 4) {
+      currentCooldown = 620;
+      this.state.comboStep = 0;
+
+      this.cameras.main.shake(220, 0.02);
+      this.cameras.main.flash(120, 56, 189, 248);
+
+      const startX = this.player.x;
+      const startY = this.player.y;
+      const targetX = startX + Math.cos(angle) * 340;
+      const targetY = startY + Math.sin(angle) * 340;
+
+      [-Math.PI / 4, Math.PI / 4].forEach((crossOffset) => {
+        const blade = this.add
+          .rectangle(startX, startY, 175, 10, 0xe0f2fe, 0.95)
+          .setStrokeStyle(2, 0x38bdf8, 1)
+          .setRotation(angle + crossOffset)
+          .setBlendMode(Phaser.BlendModes.ADD)
+          .setDepth(15);
+
+        this.tweens.add({
+          targets: blade,
+          x: targetX,
+          y: targetY,
+          scaleX: 1.45,
+          scaleY: 1.8,
+          alpha: 0,
+          duration: 420,
+          ease: 'Cubic.easeOut',
+          onComplete: () => blade.destroy(),
+        });
+      });
+
+      this.applyAreaDamage(startX + Math.cos(angle) * 70, startY + Math.sin(angle) * 70, 135, angle, 85);
+      this.time.delayedCall(140, () => {
+        if (!this.state.isGameOver) {
+          this.applyAreaDamage(startX + Math.cos(angle) * 210, startY + Math.sin(angle) * 210, 155, angle, 105);
+        }
       });
     }
 
-    // =========================================================================
-    // [공격 쿨다운 복구]
-    // =========================================================================
-    const cd =
-      form === 'THE FAITHLESS' || isNyarlaChaos
-        ? GAME_CONFIG.PLAYER.DAGGER_COOLDOWN * 0.62
-        : GAME_CONFIG.PLAYER.DAGGER_COOLDOWN;
-
-    this.time.delayedCall(cd, () => {
+    this.time.delayedCall(currentCooldown, () => {
       this.state.canSlash = true;
+    });
+
+    if (this.state.comboStep > 0) {
+      this.state.comboTimer = this.time.delayedCall(900, () => {
+        this.state.comboStep = 0;
+      });
+    }
+  }
+
+  slashCthulhu(angle) {
+    const now = this.time.now;
+    const isBeta = this.state.awakeningPath === 'BETA';
+    const cthulhuCd = isBeta ? 1150 : this.state.isExAwakened ? 1400 : 2000;
+    const totalShots = Math.min(1 + Math.floor(this.state.kills / 25) + (this.state.isExAwakened ? 2 : 0), 5);
+
+    if (!this.lastCthulhuSpitTime || now - this.lastCthulhuSpitTime >= cthulhuCd) {
+      this.lastCthulhuSpitTime = now;
+      for (let b = 0; b < totalShots; b++) {
+        this.time.delayedCall(b * 90, () => {
+          if (this.player && this.player.active) {
+            const spread = (Math.random() - 0.5) * (0.15 + totalShots * 0.05);
+            this.fireCthulhuTendril(angle + spread, b === 0);
+          }
+        });
+      }
+    }
+  }
+
+  slashFaithless(angle) {
+    const isBeta = this.state.awakeningPath === 'BETA';
+    const isGamma = this.state.awakeningPath === 'GAMMA';
+    const isOmega = this.state.awakeningTier >= 3;
+
+    const slashX = this.player.x + Math.cos(angle) * 48;
+    const slashY = this.player.y + Math.sin(angle) * 48;
+
+    const slash1 = this.add.ellipse(slashX, slashY, 105, 32, 0xb91c1c, 1).setRotation(angle).setDepth(14);
+    this.tweens.add({ targets: slash1, scaleX: 1.45, scaleY: 2.3, alpha: 0, duration: 150, ease: 'Quad.easeOut', onComplete: () => slash1.destroy() });
+
+    if (this.state.isExAwakened) {
+      const slash2 = this.add
+        .ellipse(slashX, slashY, 115, 26, 0xef4444, 0.9)
+        .setRotation(angle + Math.PI / 2.2)
+        .setBlendMode(Phaser.BlendModes.ADD)
+        .setDepth(15);
+      this.tweens.add({ targets: slash2, scaleX: 1.6, scaleY: 2.5, alpha: 0, duration: 170, ease: 'Quad.easeOut', onComplete: () => slash2.destroy() });
+    }
+
+    if (isBeta && this.state.awakeningTier >= 2) {
+      const bloodWave = this.add
+        .ellipse(slashX, slashY, 130, 15, 0xdc2626, 0.9)
+        .setRotation(angle + Math.PI / 2)
+        .setBlendMode(Phaser.BlendModes.ADD)
+        .setDepth(14);
+      this.tweens.add({
+        targets: bloodWave,
+        x: slashX + Math.cos(angle) * 280,
+        y: slashY + Math.sin(angle) * 280,
+        scaleX: 1.8,
+        scaleY: 2.5,
+        alpha: 0,
+        duration: 350,
+        ease: 'Cubic.easeOut',
+        onComplete: () => bloodWave.destroy(),
+      });
+      this.applyAreaDamage(slashX + Math.cos(angle) * 140, slashY + Math.sin(angle) * 140, 125, angle, 42);
+    }
+
+    if (isOmega && !isBeta) {
+      const bloodWave = this.add
+        .ellipse(slashX, slashY, 150, 18, 0xef4444, 0.95)
+        .setRotation(angle + Math.PI / 2)
+        .setBlendMode(Phaser.BlendModes.ADD)
+        .setDepth(14);
+      this.tweens.add({
+        targets: bloodWave,
+        x: slashX + Math.cos(angle) * 350,
+        y: slashY + Math.sin(angle) * 350,
+        scaleX: 2.2,
+        scaleY: 3.0,
+        alpha: 0,
+        duration: 320,
+        ease: 'Cubic.easeOut',
+        onComplete: () => bloodWave.destroy(),
+      });
+      this.applyAreaDamage(slashX + Math.cos(angle) * 175, slashY + Math.sin(angle) * 175, 180, angle, 85);
+    }
+
+    const hitRange = isGamma ? 98 : this.state.isExAwakened ? 82 : 68;
+    const baseDmg = isGamma ? 60 : this.state.isExAwakened ? 50 : 42;
+
+    [...this.enemies.getChildren()].forEach((e) => {
+      if (!e.active) return;
+      if (Phaser.Math.Distance.Between(slashX, slashY, e.x, e.y) <= hitRange + (e.isBoss ? 24 : 0)) {
+        this.damageEnemy(e, baseDmg, angle, e.isWindingUp);
+
+        const healChance = isOmega ? 20 : isBeta ? 8 : isGamma ? 14 : 10;
+        const healAmt = isOmega ? 4 : isBeta ? 3 : 2;
+        if (Phaser.Math.Between(1, 100) <= healChance && this.state.hp < this.state.maxHp) {
+          this.state.hp = Math.min(this.state.maxHp, this.state.hp + healAmt);
+          this.updateHUD();
+        }
+        if (isOmega && this.triggerOmegaBloodCross) this.triggerOmegaBloodCross(e.x, e.y);
+      }
+    });
+  }
+
+  slashCthugha(angle) {
+    const halfArc = Phaser.Math.DegToRad(GAME_CONFIG.PLAYER.DAGGER_ARC_DEG / 2) * 1.15;
+    const cthughaRange = GAME_CONFIG.PLAYER.DAGGER_RANGE + 43;
+
+    const flameWave = this.add
+      .ellipse(this.player.x + Math.cos(angle) * 58, this.player.y + Math.sin(angle) * 58, 96, 28, 0xf97316, 0.75)
+      .setRotation(angle)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(13);
+
+    this.tweens.add({ targets: flameWave, scaleX: 1.35, scaleY: 1.8, alpha: 0, duration: 140, onComplete: () => flameWave.destroy() });
+
+    [...this.enemies.getChildren()].forEach((e) => {
+      if (!e.active) return;
+      const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, e.x, e.y);
+      const enemyAngle = Phaser.Math.Angle.Between(this.player.x, this.player.y, e.x, e.y);
+      const diff = Math.abs(Phaser.Math.Angle.Wrap(enemyAngle - angle));
+
+      if (dist <= cthughaRange + (e.isBoss ? 28 : 0) && diff <= halfArc + 0.28) {
+        const wasBurning = e.isBurning;
+        const ex = e.x;
+        const ey = e.y;
+
+        this.damageEnemy(e, GAME_CONFIG.PLAYER.DAGGER_DAMAGE, enemyAngle, e.isWindingUp);
+
+        if (wasBurning) {
+          this.triggerCthughaRing({ active: true, x: ex, y: ey });
+          if (this.state.isExAwakened && Math.random() < 0.3) this.spawnCthughaFireZone(ex, ey);
+        }
+        if (e.active) this.applyBurn(e);
+      }
+    });
+  }
+
+  playNyarlaChaosClaw(angle) {
+    const isNyarlaBeta = this.state.awakeningPath === 'BETA';
+    const reachOffset = isNyarlaBeta ? 75 : 58;
+    const mawX = this.player.x + Math.cos(angle) * reachOffset;
+    const mawY = this.player.y + Math.sin(angle) * reachOffset;
+
+    [-0.35, 0.35].forEach((slashAngle) => {
+      const claw = this.add
+        .ellipse(mawX, mawY, isNyarlaBeta ? 140 : 110, isNyarlaBeta ? 22 : 18, 0xc084fc, 0.9)
+        .setRotation(angle + slashAngle)
+        .setBlendMode(Phaser.BlendModes.ADD)
+        .setDepth(14);
+      this.tweens.add({
+        targets: claw,
+        scaleX: isNyarlaBeta ? 1.6 : 1.4,
+        scaleY: 0.2,
+        alpha: 0,
+        duration: 160,
+        onComplete: () => claw.destroy(),
+      });
     });
   }
 
@@ -2288,7 +2385,8 @@ class MainScene extends Phaser.Scene {
   }
 
   killEnemy(enemy, wasCounter) {
-    if (!enemy || !enemy.active) return;
+    if (!enemy || !enemy.active || enemy.isDead) return;
+    enemy.isDead = true;
     const ex = enemy.x;
     const ey = enemy.y;
     const isMidBoss = enemy.isDreamMidBoss;
@@ -2303,9 +2401,9 @@ class MainScene extends Phaser.Scene {
     }
 
     // ★ 누락되었던 바닥 혈흔 그리기 복구!
-    const decalColor = this.state.isTaintedAct2 ? 0xd946ef : 0x660000;
+    const decalColor = this.state.isTaintedAct2 ? 0x1e1633 : 0x660000;
     this.bloodDecalGfx
-      .fillStyle(decalColor, this.state.isTaintedAct2 ? 0.65 : 0.45)
+      .fillStyle(decalColor, 0.45)
       .fillCircle(ex, ey, Phaser.Math.Between(8, 16));
 
     // 피구슬 드롭
@@ -2329,12 +2427,12 @@ class MainScene extends Phaser.Scene {
       this.triggerUndeadLastStand(ex, ey);
     }
 
+    enemy.destroy();
+
     // ★ 니알라토텝 처치 순간이동은 destroy 전에 좌표 확보
     if (this.state.form === 'NYARLATHOTEP') {
       this.triggerNyarlaBlink({ x: ex, y: ey, active: false }, true);
     }
-
-    enemy.destroy();
 
     if (isMidBoss) {
       this.onDreamMidBossDefeated();
@@ -2399,10 +2497,9 @@ class MainScene extends Phaser.Scene {
         }
 
         const bolt = this.projectiles
-          .create(x, y, 'holy_bolt')
+          .create(x, y, 'dream_bolt') // ★ 순백+시안 달빛탄 (초록색 변질 해결)
           .setDepth(9)
-          .setTint(0x67e8f9) // ★ 마젠타 탄환
-          .setScale(1.4);
+          .setScale(1.3);
 
         bolt.setVelocity(Math.cos(lockAngle) * 560, Math.sin(lockAngle) * 560);
         this.time.delayedCall(2500, () => {
@@ -4692,7 +4789,7 @@ class MainScene extends Phaser.Scene {
       }
     };
 
-    // 3. 실시간 유도 및 사인파(Sine) 촉수 무빙 타이머
+    // 3. 실시간 유도(베타 전용) 및 사인파(Sine) 촉수 무빙 타이머
     let tick = 0;
     seekerTimer = this.time.addEvent({
       delay: 25,
@@ -4706,7 +4803,7 @@ class MainScene extends Phaser.Scene {
 
         tick++;
 
-        // 가장 가까운 적 탐색
+        // 가장 가까운 적 탐색 (명중 판정 및 베타 유도용)
         let nearestEnemy = null;
         let minDist = 650;
         this.enemies.getChildren().forEach((e) => {
@@ -4718,8 +4815,8 @@ class MainScene extends Phaser.Scene {
           }
         });
 
-        // 적 추적 회전 및 꿈틀거림(wiggle) 연산
-        if (nearestEnemy) {
+        // ★ 베타(-β) 진화 시에만 적을 향해 회전(유도)
+        if (isBeta && nearestEnemy) {
           const targetAngle = Phaser.Math.Angle.Between(
             proj.x,
             proj.y,
@@ -4733,7 +4830,8 @@ class MainScene extends Phaser.Scene {
           );
         }
 
-        const wiggle = Math.sin(tick * 0.45) * 0.22;
+        // 평상시엔 조준 방향으로 사인파를 그리며 꿈틀대며 전진
+        const wiggle = Math.sin(tick * 0.45) * (isBeta ? 0.22 : 0.32);
         const finalAngle = proj.currentAngle + wiggle;
 
         proj.setVelocity(
@@ -5238,10 +5336,9 @@ class MainScene extends Phaser.Scene {
 
       // 실제 고속 저격탄 발사
       const bolt = this.projectiles
-        .create(e.x, e.y, 'holy_bolt')
+        .create(e.x, e.y, 'dream_bolt') // ★ 순백+시안 달빛탄 (초록색 변질 해결)
         .setDepth(9)
-        .setTint(0x67e8f9)
-        .setScale(1.4);
+        .setScale(1.3);
 
       bolt.setVelocity(Math.cos(lockAngle) * 540, Math.sin(lockAngle) * 540);
       this.time.delayedCall(2500, () => {
@@ -6226,9 +6323,11 @@ class MainScene extends Phaser.Scene {
   // 패턴 2: 단죄의 산탄 (P1: 3갈래 부채꼴 / P2: 10갈래 전방위 회전 탄막 2연사)
   patternProjectiles(isP2 = false) {
     this.boss.setTint(0xfacc15);
+    this.boss.isWindingUp = true; // ★ 탄환 발사 전조 카운터 허용
 
     this.time.delayedCall(isP2 ? 450 : 600, () => {
       if (!this.boss || !this.boss.active) return;
+      this.boss.isWindingUp = false; // ★ 발사 시점에 해제
       if (isP2) this.boss.setTint(0xfca5a5);
       else this.boss.clearTint();
 
@@ -6279,9 +6378,11 @@ class MainScene extends Phaser.Scene {
   // 패턴 3: 이단 심문 (P2에서는 원거리 사제까지 섞어서 소환)
   patternSummon(isP2 = false) {
     this.boss.setTint(0x94a3b8);
+    this.boss.isWindingUp = true; // ★ 몹 소환 전조 카운터 허용
 
     this.time.delayedCall(isP2 ? 700 : 1000, () => {
       if (!this.boss || !this.boss.active) return;
+      this.boss.isWindingUp = false; // ★ 소환 시점에 해제
       if (isP2) this.boss.setTint(0xfca5a5);
       else this.boss.clearTint();
 
@@ -7331,17 +7432,17 @@ class MainScene extends Phaser.Scene {
     // ★ 루트별 컬러 팔레트 세팅 (사후 황무지 vs 심해 르뤼에)
     const pal = isTainted
       ? {
-        bgHex: '#352e4d',      // 밝은 새벽빛 라벤더 슬레이트 (기존 #0d0618에서 대폭 상향)
-        bgNum: 0x352e4d,
-        slab: 0x524775,        // 밝은 대리석 석판 테두리
-        crack: 0x7c6fa6,       // 은은하게 빛나는 석판 틈새
-        center: 0xfde68a,      // 몽환적인 옅은 금빛 중앙 마법진
-        pillarBg: 0x453b66,    // 대리석 기둥
-        rune: 0xfef08a,        // 따뜻한 달빛/금빛 룬
-        particles: [0xffffff, 0xfef08a, 0xe9d5ff, 0x93c5fd], // 하얀 성운 + 금빛 가루
+        bgHex: '#2c283b',      // 채도를 살짝 뺀 차분한 달빛 대리석
+        bgNum: 0x2c283b,
+        slab: 0x3f3954,        // 은은한 석판
+        crack: 0x524b6e,       // 틈새
+        center: 0xcbd5e1,      // 노란색 제거 -> 창백한 은빛 마법진
+        pillarBg: 0x363147,
+        rune: 0xe2e8f0,        // 순백/은빛 룬
+        particles: [0xffffff, 0xe2e8f0, 0xc4b5fd], // 하얀 성운 + 연보라만 유지
         title: 'ACT II [DREAMLANDS] : Unknown Kadath\nTHE DREAMLANDS',
-        titleColor: '#fef08a',
-        guide: '🌙 [THE DREAMLANDS] Half your vitality remains in the waking world. Survive for Gamma Awakening.',
+        titleColor: '#e2e8f0',
+        guide: '[THE DREAMLANDS] Half your vitality remains in the waking world. Survive for Gamma Awakening.',
       }
       : {
         bgHex: '#03090a',
