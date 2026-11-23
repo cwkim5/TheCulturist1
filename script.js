@@ -315,6 +315,7 @@ class PreloadScene extends Phaser.Scene {
       DAGON: { fill: 0x082f49, stroke: 0x0ea5e9 }, // 다곤: 심해 코어 + 청록색 테두리
       NODENS: { fill: 0x0f172a, stroke: 0x38bdf8 }, // 노덴스: 칠흑 코어 + 은푸른빛 테두리
       'THE FAITHLESS': { fill: 0x450a0a, stroke: 0xef4444 }, // 무신앙자: 응고된 핏빛 코어 + 선혈 테두리
+      'THE FAITHLESS_GAMMA': { fill: 0xf8fafc, stroke: 0xfacc15 }, // ★ 순백 피부 + 황금 테두리
       CTHUGHA: { fill: 0x450a0a, stroke: 0xf97316 }, // 크투가: 타오르는 석탄 코어 + 주황빛 테두리
     };
 
@@ -856,36 +857,6 @@ class MainScene extends Phaser.Scene {
       },
     });
 
-    if (this.state.form === 'THE FAITHLESS') {
-      const hitCountMap = new Map(); // ★ 적 개체별 대시 다단히트 횟수 제한용
-
-      this.time.addEvent({
-        delay: 30,
-        repeat: 3, // 총 4회 체크
-        callback: () => {
-          if (!this.enemies) return;
-          const currentEnemies = [...this.enemies.getChildren()];
-          currentEnemies.forEach((e) => {
-            if (!e.active) return;
-            const hits = hitCountMap.get(e) || 0;
-            if (hits >= 2) return; // ★ 한 번의 대시로 동일 적에게 최대 2히트까지만 허용!
-
-            if (
-              Phaser.Math.Distance.Between(
-                this.player.x,
-                this.player.y,
-                e.x,
-                e.y
-              ) <= 42
-            ) {
-              hitCountMap.set(e, hits + 1);
-              this.cameras.main.shake(40, 0.004);
-              this.damageEnemy(e, 14, dashAngle, false); // 틱당 14 (1.35배 적용 시 약 19, 2틱 합산 38 데미지)
-            }
-          });
-        },
-      });
-    }
     // ★ [니알라토텝 기본 기믹] 대시 사용 시 표식(chaosStacks)이 묻은 모든 적 즉시 일제 격발!
     if (this.state.form === 'NYARLATHOTEP') {
       const markedEnemies = this.enemies
@@ -969,22 +940,6 @@ class MainScene extends Phaser.Scene {
       this.player.setAlpha(1.0);
       trailTimer.destroy();
       this.restoreFormTint();
-      // ★ [80킬 초월: 무신앙자] 대시 도착 지점에 핏빛 충격파 폭발!
-      if (this.state.form === 'THE FAITHLESS' && this.state.isExAwakened) {
-        const bloodNova = this.add
-          .circle(this.player.x, this.player.y, 18, 0xdc2626, 0.5)
-          .setStrokeStyle(3, 0xef4444, 0.9)
-          .setBlendMode(Phaser.BlendModes.ADD)
-          .setDepth(13);
-        this.tweens.add({
-          targets: bloodNova,
-          scale: 4.5,
-          alpha: 0,
-          duration: 220,
-          onComplete: () => bloodNova.destroy(),
-        });
-        this.applyAreaDamage(this.player.x, this.player.y, 75, dashAngle, 30);
-      }
     });
 
     this.time.delayedCall(this.state.dashCooldown, () => {
@@ -1081,36 +1036,22 @@ class MainScene extends Phaser.Scene {
       const isGamma = this.state.awakeningPath === 'GAMMA';
 
       if (isGamma) {
-        // ★ [감마 전용] 양옆에서 앞쪽으로 날카롭게 휘어지는 검붉은 악마 뿔 2자루
-        const drawHorn = (side) => {
-          const base1 = getPos(2, side * 11);
-          const base2 = getPos(-3, side * 13);
-          const mid = getPos(8, side * 20);
-          const tip = getPos(19, side * 15); // 앞쪽을 향해 굽은 뿔 끝
+        // ★ [감마: THE JUDGEMENT] 눈을 가린 순백의 심판자 안대 + 이마 황금 십자 인장
+        const b1 = getPos(6, -10);
+        const b2 = getPos(6, 10);
+        this.playerEyeGfx.lineStyle(4, 0xfacc15, 1);
+        this.playerEyeGfx.lineBetween(b1.x, b1.y, b2.x, b2.y);
 
-          this.playerEyeGfx.fillStyle(0x450a0a, 1);
-          this.playerEyeGfx.lineStyle(2, 0xef4444, 1);
-          this.playerEyeGfx.beginPath();
-          this.playerEyeGfx.moveTo(base1.x, base1.y);
-          this.playerEyeGfx.lineTo(mid.x, mid.y);
-          this.playerEyeGfx.lineTo(tip.x, tip.y);
-          this.playerEyeGfx.lineTo(base2.x, base2.y);
-          this.playerEyeGfx.closePath();
-          this.playerEyeGfx.fillPath();
-          this.playerEyeGfx.strokePath();
-        };
-        drawHorn(-1); // 왼쪽 뿔
-        drawHorn(1);  // 오른쪽 뿔
+        // 안대 중앙의 빛나는 황금빛 십자(+) 문양
+        const c = getPos(6, 0);
+        this.playerEyeGfx.lineStyle(1.8, 0xfacc15, 1);
+        this.playerEyeGfx.lineBetween(c.x - 3.5, c.y, c.x + 3.5, c.y);
+        this.playerEyeGfx.lineBetween(c.x, c.y - 3.5, c.x, c.y + 3.5);
 
-        // 살인마 특유의 날카롭게 찢어진 핏빛+백색 안광
-        const l1 = getPos(4, -6), l2 = getPos(9, -2);
-        const r1 = getPos(4, 6), r2 = getPos(9, 2);
-        this.playerEyeGfx.lineStyle(3.5, 0xff003c, 0.9);
-        this.playerEyeGfx.lineBetween(l1.x, l1.y, l2.x, l2.y);
-        this.playerEyeGfx.lineBetween(r1.x, r1.y, r2.x, r2.y);
-        this.playerEyeGfx.lineStyle(1.5, 0xffffff, 1);
-        this.playerEyeGfx.lineBetween(l1.x, l1.y, l2.x, l2.y);
-        this.playerEyeGfx.lineBetween(r1.x, r1.y, r2.x, r2.y);
+        // 머리 뒤편에 떠 있는 황금빛 반원 광배(Halo)
+        const halo = getPos(-9, 0);
+        this.playerEyeGfx.lineStyle(2.5, 0xfef08a, 0.95);
+        this.playerEyeGfx.strokeCircle(halo.x, halo.y, 8);
       } else {
         // 기존 무신앙자 안광 유지
         this.playerEyeGfx.fillStyle(0xffffff, 1);
@@ -1160,163 +1101,225 @@ class MainScene extends Phaser.Scene {
     }
   }
 
-  // ★ [히든 각성: 니알라토텝] 30킬 무대시/무패링 달성 시 강림 연출
+  // ★ [1] 30킬 달성 시: 즉시 변신하지 않고 중앙에 보랏빛 히든 제단만 소환
   checkNyarlathotepEvolution() {
     if (
       this.state.form === 'MORTAL CULTIST' &&
       this.state.dashesUsed === 0 &&
       this.state.parriesAttempted === 0
     ) {
-      if (this.shrines) this.shrines.clear(true, true);
+      this.spawnNyarlathotepShrine();
+    }
+  }
 
-      const px = this.player.x;
-      const py = this.player.y;
+  spawnNyarlathotepShrine() {
+    if (this.nyarlaShrineSpawned || this.state.form !== 'MORTAL CULTIST') return;
+    this.nyarlaShrineSpawned = true;
 
-      // 1. 순간적인 시간 정지(슬로우 모션) 및 암흑 침식 오버레이
-      this.physics.world.timeScale = 4.0;
-      const darkVeil = this.add
-        .rectangle(400, 300, 800, 600, 0x090414, 0.85)
-        .setScrollFactor(0)
-        .setDepth(180)
-        .setAlpha(0);
+    const cx = 700;
+    const cy = 700;
 
-      this.tweens.add({
-        targets: darkVeil,
-        alpha: 1,
-        duration: 250,
-        yoyo: true,
-        hold: 650,
-        onComplete: () => darkVeil.destroy(),
+    // 기존 3신 제단과 동일한 circle + 정적 물리 바디 구조
+    const shrine = this.add
+      .circle(cx, cy, 28, 0xa855f7, 0.25)
+      .setStrokeStyle(3, 0xe879f9)
+      .setDepth(5);
+
+    this.physics.add.existing(shrine, true);
+    shrine.godType = 'NYARLATHOTEP'; // ★ 기존 godType 규격 통일
+    shrine.decorations = [];
+    this.shrines.add(shrine);
+
+    // 보랏빛 맥동 연출
+    this.tweens.add({
+      targets: shrine,
+      scale: 1.18,
+      alpha: 0.5,
+      duration: 850,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+
+    // 소환 충격파 & 안내 문구
+    this.cameras.main.flash(400, 168, 85, 247);
+    this.cameras.main.shake(250, 0.015);
+
+    const spawnRing = this.add
+      .circle(cx, cy, 16, 0xa855f7, 0.55)
+      .setStrokeStyle(3, 0xffffff, 1)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(15);
+
+    this.tweens.add({
+      targets: spawnRing,
+      scale: 9,
+      alpha: 0,
+      duration: 450,
+      ease: 'Cubic.easeOut',
+      onComplete: () => spawnRing.destroy(),
+    });
+
+    if (this.hudGuide) {
+      this.hudGuide
+        .setText('👁️ [HIDDEN ALTAR] A purple shrine of Nyarlathotep has risen at the center.')
+        .setColor('#e879f9');
+    }
+  }
+
+  // ★ [2] 중앙 니알라토텝 제단 상호작용 시 호출할 강림 연출
+  triggerNyarlathotepAwakening() {
+    if (this.shrines) {
+      this.shrines.getChildren().forEach((s) => {
+        if (s.decorations) s.decorations.forEach((d) => d.destroy());
       });
+      this.shrines.clear(true, true);
+    }
 
-      // 2. 플레이어 주변 공간이 찢어지는 비유클리드 보랏빛 균열선 8갈래
-      const riftGfx = this.add
-        .graphics()
-        .setDepth(185)
-        .setBlendMode(Phaser.BlendModes.ADD);
+    const px = this.player.x;
+    const py = this.player.y;
 
-      for (let i = 0; i < 8; i++) {
-        const a = (i * Math.PI) / 4 + Phaser.Math.FloatBetween(-0.2, 0.2);
-        const len = Phaser.Math.Between(90, 180);
-        riftGfx.lineStyle(Phaser.Math.Between(2, 4), 0xc084fc, 0.9);
-        riftGfx.lineBetween(
-          px - Math.cos(a) * (len * 0.4),
-          py - Math.sin(a) * (len * 0.4),
-          px + Math.cos(a) * len,
-          py + Math.sin(a) * len
-        );
-      }
+    // 1. 순간적인 시간 정지(슬로우 모션) 및 암흑 침식 오버레이
+    this.physics.world.timeScale = 4.0;
+    const darkVeil = this.add
+      .rectangle(400, 300, 800, 600, 0x090414, 0.85)
+      .setScrollFactor(0)
+      .setDepth(180)
+      .setAlpha(0);
 
-      this.tweens.add({
-        targets: riftGfx,
-        alpha: 0,
-        duration: 850,
-        ease: 'Cubic.easeOut',
-        onComplete: () => riftGfx.destroy(),
-      });
+    this.tweens.add({
+      targets: darkVeil,
+      alpha: 1,
+      duration: 250,
+      yoyo: true,
+      hold: 650,
+      onComplete: () => darkVeil.destroy(),
+    });
 
-      // 3. 어둠 속에서 차례대로 떠지는 '혼돈의 외눈(Chaos Eyes)' 연출
-      for (let i = 0; i < 9; i++) {
-        this.time.delayedCall(i * 55, () => {
-          const dist = Phaser.Math.Between(45, 160);
-          const ang = Phaser.Math.FloatBetween(0, Math.PI * 2);
-          const ex = px + Math.cos(ang) * dist;
-          const ey = py + Math.sin(ang) * dist;
+    // 2. 비유클리드 보랏빛 균열선 8갈래
+    const riftGfx = this.add
+      .graphics()
+      .setDepth(185)
+      .setBlendMode(Phaser.BlendModes.ADD);
 
-          const eyeOuter = this.add
-            .ellipse(ex, ey, 28, 12, 0xa855f7, 0.9)
-            .setBlendMode(Phaser.BlendModes.ADD)
-            .setDepth(186)
-            .setScale(0);
-          const eyePupil = this.add
-            .ellipse(ex, ey, 4, 12, 0xffffff, 1)
-            .setDepth(187)
-            .setScale(0);
+    for (let i = 0; i < 8; i++) {
+      const a = (i * Math.PI) / 4 + Phaser.Math.FloatBetween(-0.2, 0.2);
+      const len = Phaser.Math.Between(90, 180);
+      riftGfx.lineStyle(Phaser.Math.Between(2, 4), 0xc084fc, 0.9);
+      riftGfx.lineBetween(
+        px - Math.cos(a) * (len * 0.4),
+        py - Math.sin(a) * (len * 0.4),
+        px + Math.cos(a) * len,
+        py + Math.sin(a) * len
+      );
+    }
 
-          this.tweens.add({
-            targets: [eyeOuter, eyePupil],
-            scaleX: 1.2,
-            scaleY: 1.2,
-            duration: 180,
-            yoyo: true,
-            hold: 220,
-            onComplete: () => {
-              eyeOuter.destroy();
-              eyePupil.destroy();
-            },
-          });
-        });
-      }
+    this.tweens.add({
+      targets: riftGfx,
+      alpha: 0,
+      duration: 850,
+      ease: 'Cubic.easeOut',
+      onComplete: () => riftGfx.destroy(),
+    });
 
-      // 4. 0.55초 뒤 본 각성 폭발 및 주변 적 강제 넉백 + 혼돈 낙인 일제 부여
-      this.time.delayedCall(550, () => {
-        this.physics.world.timeScale = 1.0;
-        this.cameras.main.flash(700, 168, 85, 247);
-        this.cameras.main.shake(650, 0.035);
+    // 3. 어둠 속에서 차례대로 떠지는 '혼돈의 외눈(Chaos Eyes)'
+    for (let i = 0; i < 9; i++) {
+      this.time.delayedCall(i * 55, () => {
+        const dist = Phaser.Math.Between(45, 160);
+        const ang = Phaser.Math.FloatBetween(0, Math.PI * 2);
+        const ex = px + Math.cos(ang) * dist;
+        const ey = py + Math.sin(ang) * dist;
 
-        this.awakenNyarlathotep();
-
-        // 이중 공허 충격파 링
-        [0x9333ea, 0xe879f9].forEach((col, idx) => {
-          const ring = this.add
-            .circle(px, py, 20, col, 0.35)
-            .setStrokeStyle(4 - idx, 0xffffff, 0.9)
-            .setBlendMode(Phaser.BlendModes.ADD)
-            .setDepth(190);
-
-          this.tweens.add({
-            targets: ring,
-            scale: 13 + idx * 4,
-            alpha: 0,
-            duration: 550 + idx * 120,
-            ease: 'Cubic.easeOut',
-            onComplete: () => ring.destroy(),
-          });
-        });
-
-        // 주변 적들을 밀쳐내며 동시에 혼돈 낙인 2스택씩 강제 주입!
-        this.enemies.getChildren().forEach((e) => {
-          if (!e.active) return;
-          const pushAngle = Phaser.Math.Angle.Between(px, py, e.x, e.y);
-          e.setVelocity(Math.cos(pushAngle) * 480, Math.sin(pushAngle) * 480);
-          e.isKnockedBack = true;
-          this.addChaosMark(e, 2);
-          this.time.delayedCall(250, () => {
-            if (e.active) e.isKnockedBack = false;
-          });
-        });
-
-        // 묵직하고 간결한 영문 선언 배너
-        const banner = this.add
-          .text(
-            this.cameras.main.centerX,
-            this.cameras.main.centerY - 70,
-            'THE CRAWLING CHAOS\n[ Nyarlathotep ]',
-            {
-              fontFamily: 'Georgia, serif',
-              fontSize: '26px',
-              color: '#e879f9',
-              align: 'center',
-              fontStyle: 'bold',
-              stroke: '#090414',
-              strokeThickness: 6,
-            }
-          )
-          .setOrigin(0.5)
-          .setScrollFactor(0)
-          .setDepth(200);
+        const eyeOuter = this.add
+          .ellipse(ex, ey, 28, 12, 0xa855f7, 0.9)
+          .setBlendMode(Phaser.BlendModes.ADD)
+          .setDepth(186)
+          .setScale(0);
+        const eyePupil = this.add
+          .ellipse(ex, ey, 4, 12, 0xffffff, 1)
+          .setDepth(187)
+          .setScale(0);
 
         this.tweens.add({
-          targets: banner,
-          y: banner.y - 30,
-          alpha: 0,
-          delay: 1600,
-          duration: 1000,
-          ease: 'Power2',
-          onComplete: () => banner.destroy(),
+          targets: [eyeOuter, eyePupil],
+          scaleX: 1.2,
+          scaleY: 1.2,
+          duration: 180,
+          yoyo: true,
+          hold: 220,
+          onComplete: () => {
+            eyeOuter.destroy();
+            eyePupil.destroy();
+          },
         });
       });
     }
+
+    // 4. 0.55초 뒤 본 각성 폭발 + 넉백 + 혼돈 낙인 부여
+    this.time.delayedCall(550, () => {
+      this.physics.world.timeScale = 1.0;
+      this.cameras.main.flash(700, 168, 85, 247);
+      this.cameras.main.shake(650, 0.035);
+
+      this.awakenNyarlathotep();
+
+      [0x9333ea, 0xe879f9].forEach((col, idx) => {
+        const ring = this.add
+          .circle(px, py, 20, col, 0.35)
+          .setStrokeStyle(4 - idx, 0xffffff, 0.9)
+          .setBlendMode(Phaser.BlendModes.ADD)
+          .setDepth(190);
+
+        this.tweens.add({
+          targets: ring,
+          scale: 13 + idx * 4,
+          alpha: 0,
+          duration: 550 + idx * 120,
+          ease: 'Cubic.easeOut',
+          onComplete: () => ring.destroy(),
+        });
+      });
+
+      this.enemies.getChildren().forEach((e) => {
+        if (!e.active) return;
+        const pushAngle = Phaser.Math.Angle.Between(px, py, e.x, e.y);
+        e.setVelocity(Math.cos(pushAngle) * 480, Math.sin(pushAngle) * 480);
+        e.isKnockedBack = true;
+        this.addChaosMark(e, 2);
+        this.time.delayedCall(250, () => {
+          if (e.active) e.isKnockedBack = false;
+        });
+      });
+
+      const banner = this.add
+        .text(
+          this.cameras.main.centerX,
+          this.cameras.main.centerY - 70,
+          'THE CRAWLING CHAOS\n[ Nyarlathotep ]',
+          {
+            fontFamily: 'Georgia, serif',
+            fontSize: '26px',
+            color: '#e879f9',
+            align: 'center',
+            fontStyle: 'bold',
+            stroke: '#090414',
+            strokeThickness: 6,
+          }
+        )
+        .setOrigin(0.5)
+        .setScrollFactor(0)
+        .setDepth(200);
+
+      this.tweens.add({
+        targets: banner,
+        y: banner.y - 30,
+        alpha: 0,
+        delay: 1600,
+        duration: 1000,
+        ease: 'Power2',
+        onComplete: () => banner.destroy(),
+      });
+    });
   }
 
   createHUD() {
@@ -1555,20 +1558,20 @@ class MainScene extends Phaser.Scene {
       return;
     }
 
+    if (this.state.form === 'THE FAITHLESS' && this.state.awakeningPath === 'GAMMA') {
+      this.slashFaithlessJudgement(angle);
+      return;
+    }
+
     // 4. 공통 런지(돌진/반동) 및 초승달 궤적 + 기본 폼 판정
     const form = this.state.form;
     const isNyarlaChaos = form === 'NYARLATHOTEP' && this.state.isChaos;
     const usesStandardHit = form !== 'THE FAITHLESS' && form !== 'CTHUGHA';
-    const isFaithlessGamma = form === 'THE FAITHLESS' && this.state.awakeningPath === 'GAMMA';
 
     this.applySlashLunge(angle, form);
-    if (!isFaithlessGamma) {
-      this.playCrescentSlash(angle, usesStandardHit);
-    }
+    this.playCrescentSlash(angle, usesStandardHit);
 
-    // 5. 폼별 특수 공격 라우팅
     if (form === 'CTHULHU') this.slashCthulhu(angle);
-    else if (isFaithlessGamma) this.slashFaithlessGammaWhip(angle); // ★ 감마 전용 채찍!
     else if (form === 'THE FAITHLESS') this.slashFaithless(angle);
     else if (form === 'CTHUGHA') this.slashCthugha(angle);
     else if (isNyarlaChaos) this.playNyarlaChaosClaw(angle);
@@ -1627,15 +1630,21 @@ class MainScene extends Phaser.Scene {
   }
 
   checkShrineInteraction() {
-    this.shrines.getChildren().forEach((s) => {
+    for (const s of [...this.shrines.getChildren()]) {
       if (
         Phaser.Math.Distance.Between(this.player.x, this.player.y, s.x, s.y) <=
         GAME_CONFIG.PLAYER.DAGGER_RANGE + 25
       ) {
-        if (s.tierType) this.triggerTier2Evolution(s.tierType);
-        else if (s.godType) this.triggerGruesomeEvolution(s.godType);
+        if (s.tierType) {
+          this.triggerTier2Evolution(s.tierType);
+        } else if (s.godType === 'NYARLATHOTEP') {
+          this.triggerNyarlathotepAwakening(); // ★ 중앙 니알라토텝 히든 제단 전용 연출
+        } else if (s.godType) {
+          this.triggerGruesomeEvolution(s.godType);
+        }
+        return; // 한 번에 하나의 제단만 발동
       }
-    });
+    }
   }
 
   applySlashLunge(angle, form) {
@@ -1657,121 +1666,128 @@ class MainScene extends Phaser.Scene {
     }
   }
 
-  slashFaithlessGammaWhip(angle) {
-    const maxRange = 245;
-    const hitEnemies = new Set(); // 클릭 1회당 동일 적 중복 타격 방지 (밸런스 유지)
+  slashFaithlessJudgement(angle) {
+    // 좌우 번갈아 휘두르기
+    this.slashDir = (this.slashDir || 1) * -1;
+    const dir = this.slashDir;
 
-    // 1. 배경에 깔리는 반투명 핏빛 부채꼴 잔상 (공격 범위 볼륨감 확보)
-    const fanGfx = this.add.graphics().setDepth(13).setBlendMode(Phaser.BlendModes.ADD);
-    fanGfx.fillStyle(0x991b1b, 0.22);
-    fanGfx.slice(this.player.x, this.player.y, maxRange, angle - 0.85, angle + 0.85, false);
-    fanGfx.fillPath();
-    this.tweens.add({
-      targets: fanGfx,
-      alpha: 0,
-      duration: 200,
-      ease: 'Quad.easeOut',
-      onComplete: () => fanGfx.destroy(),
+    // 묵직한 전진 스텝
+    this.player.isLunging = true;
+    this.player.setVelocity(Math.cos(angle) * 200, Math.sin(angle) * 200);
+    this.time.delayedCall(110, () => {
+      if (this.player) this.player.isLunging = false;
     });
 
-    // 2. 3가닥 혈뢰 채찍이 엇갈리며 난도질 (좌상 -> 우하 -> 정면 교차)
-    const lashOffsets = [-0.52, 0.52, Phaser.Math.FloatBetween(-0.18, 0.18)];
-    const curveDirs = [1, -1, Phaser.Math.RND.pick([-1, 1])];
+    const slashGfx = this.add.graphics().setDepth(14).setBlendMode(Phaser.BlendModes.ADD);
+    const range = 190; // 거대 대검 사거리
+    const halfArc = Phaser.Math.DegToRad(75); // 총 150도 광범위 스윙
+    const segments = 18;
+    const maxThickness = range * 0.42;
+    const hitEnemies = new Set();
+    let hitAny = false;
 
-    lashOffsets.forEach((offset, idx) => {
-      this.time.delayedCall(idx * 42, () => {
-        if (!this.player || !this.player.active || this.state.isGameOver) return;
+    this.cameras.main.shake(130, 0.011);
 
-        const sx = this.player.x;
-        const sy = this.player.y;
-        const lashAngle = angle + offset;
-        const perpAngle = lashAngle + Math.PI / 2;
-        const lashLen = maxRange * Phaser.Math.FloatBetween(0.92, 1.05);
-        const segments = 8;
+    this.tweens.addCounter({
+      from: 0,
+      to: 1,
+      duration: 240, // 기본 단검(160ms)보다 묵직한 스윙 속도
+      ease: 'Cubic.easeOut',
+      onUpdate: (tween) => {
+        if (!slashGfx.active || !this.player || !this.player.active) return;
+        const p = tween.getValue();
 
-        // 지그재그 혈뢰 마디 좌표 생성
-        const pts = [{ x: sx, y: sy }];
-        for (let i = 1; i <= segments; i++) {
-          const t = i / segments;
-          const r = t * lashLen;
-          const bend = Math.sin(t * Math.PI) * 26 * curveDirs[idx]; // 채찍 휘어짐
-          const jitter = i === segments ? 0 : Phaser.Math.Between(-14, 14) * (0.4 + t * 0.6); // 하스터식 번개 굴곡
-          const perp = bend + jitter;
+        const headT = Phaser.Math.Clamp(p * 2.6, 0, 1);
+        const tailT = Phaser.Math.Clamp((p - 0.18) / 0.82, 0, 1);
 
-          pts.push({
-            x: sx + Math.cos(lashAngle) * r + Math.cos(perpAngle) * perp,
-            y: sy + Math.sin(lashAngle) * r + Math.sin(perpAngle) * perp,
-          });
+        slashGfx.clear();
+        if (headT - tailT <= 0.02) return;
+
+        const alpha = p < 0.65 ? 1 : 1 - (p - 0.65) / 0.35;
+        const currentThick = maxThickness * (1 - Math.pow(p, 1.4));
+        const outerPts = [];
+        const innerPts = [];
+
+        for (let i = 0; i <= segments; i++) {
+          const localT = i / segments;
+          const t = Phaser.Math.Linear(tailT, headT, localT);
+          const sweepT = dir === 1 ? t : 1 - t;
+          const a = angle - halfArc + sweepT * (halfArc * 2);
+          const r = range * (0.94 + Math.sin(t * Math.PI) * 0.08);
+          outerPts.push(new Phaser.Math.Vector2(this.player.x + Math.cos(a) * r, this.player.y + Math.sin(a) * r));
         }
 
-        const lashGfx = this.add.graphics().setDepth(14).setBlendMode(Phaser.BlendModes.ADD);
-        const drawPath = (width, color, alpha) => {
-          lashGfx.lineStyle(width, color, alpha);
-          lashGfx.beginPath();
-          pts.forEach((pt, i) => (i === 0 ? lashGfx.moveTo(pt.x, pt.y) : lashGfx.lineTo(pt.x, pt.y)));
-          lashGfx.strokePath();
-        };
+        for (let i = segments; i >= 0; i--) {
+          const localT = i / segments;
+          const t = Phaser.Math.Linear(tailT, headT, localT);
+          const sweepT = dir === 1 ? t : 1 - t;
+          const a = angle - halfArc + sweepT * (halfArc * 2);
+          const crescent = Math.sin(localT * Math.PI);
+          const outerR = range * (0.94 + Math.sin(t * Math.PI) * 0.08);
+          const r = Math.max(16, outerR - crescent * currentThick);
+          innerPts.push(new Phaser.Math.Vector2(this.player.x + Math.cos(a) * r, this.player.y + Math.sin(a) * r));
+        }
 
-        // 반투명 3중 발광 레이어 (넓은 혈기 -> 선혈 -> 날카로운 백색 핵)
-        drawPath(16, 0x7f1d1d, 0.32);
-        drawPath(7, 0xff003c, 0.62);
-        drawPath(2, 0xfecaca, 0.85);
+        const poly = outerPts.concat(innerPts);
 
-        // 채찍 끝단 X자 찢김 섬광
-        const tip = pts[pts.length - 1];
-        lashGfx.lineStyle(2, 0xff003c, 0.75);
-        lashGfx.lineBetween(tip.x - 14, tip.y - 14, tip.x + 14, tip.y + 14);
-        lashGfx.lineBetween(tip.x + 14, tip.y - 14, tip.x - 14, tip.y + 14);
+        // 1) 바깥쪽 황금 성광 궤적
+        slashGfx.fillStyle(0xfacc15, 0.42 * alpha).fillPoints(poly, true);
+        slashGfx.lineStyle(3.5, 0xfef08a, 0.9 * alpha).strokePoints(poly, true);
 
-        this.tweens.add({
-          targets: lashGfx,
-          alpha: 0,
-          duration: 185,
-          ease: 'Cubic.easeOut',
-          onComplete: () => lashGfx.destroy(),
-        });
+        // 2) 스윙 선두를 이끄는 순백의 대검 칼날(Blade) 본체
+        const leadT = dir === 1 ? headT : 1 - headT;
+        const bladeAngle = angle - halfArc + leadT * (halfArc * 2);
+        const bx = this.player.x + Math.cos(bladeAngle) * (range + 10);
+        const by = this.player.y + Math.sin(bladeAngle) * (range + 10);
 
-        if (idx === 0) this.cameras.main.shake(80, 0.007);
+        slashGfx.lineStyle(8 * alpha, 0xfacc15, 0.65 * alpha);
+        slashGfx.lineBetween(this.player.x, this.player.y, bx, by);
+        slashGfx.lineStyle(3.5 * alpha, 0xffffff, alpha);
+        slashGfx.lineBetween(this.player.x, this.player.y, bx, by);
 
-        // ★ 3가닥이 나가는 동안 부채꼴 범위 내 적 판정
-        [...this.enemies.getChildren()].forEach((e) => {
-          if (!e.active || hitEnemies.has(e)) return;
+        // 3) 실시간 스윙 타격 판정
+        if (p <= 0.68) {
+          [...this.enemies.getChildren()].forEach((e) => {
+            if (!e.active || hitEnemies.has(e)) return;
 
-          const dist = Phaser.Math.Distance.Between(sx, sy, e.x, e.y);
-          const enemyAngle = Phaser.Math.Angle.Between(sx, sy, e.x, e.y);
-          const angleDiff = Math.abs(Phaser.Math.Angle.Wrap(enemyAngle - angle));
+            const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, e.x, e.y);
+            const enemyAngle = Phaser.Math.Angle.Between(this.player.x, this.player.y, e.x, e.y);
+            const diff = Math.abs(Phaser.Math.Angle.Wrap(enemyAngle - angle));
 
-          if (dist <= maxRange + (e.isBoss ? 28 : 14) && angleDiff <= 0.85) {
-            hitEnemies.add(e);
+            if (dist <= range + (e.isBoss ? 28 : 16) && diff <= halfArc + 0.18) {
+              hitEnemies.add(e);
+              hitAny = true;
+              this.damageEnemy(e, 155, enemyAngle, e.isWindingUp);
 
-            const isTipHit = dist >= 150;
-            const dmg = isTipHit ? 78 : 58;
-            this.damageEnemy(e, dmg, enemyAngle, e.isWindingUp);
-
-            if (isTipHit) {
-              this.bloodEmitter.explode(20, e.x, e.y);
-              const crack = this.add
-                .circle(e.x, e.y, 12, 0xff003c, 0.55)
-                .setStrokeStyle(2, 0xfecaca, 0.9)
+              // 피격 지점에 황금 십자(+) 심판 이펙트
+              const hitSpark = this.add
+                .circle(e.x, e.y, 14, 0xfef08a, 0.7)
                 .setBlendMode(Phaser.BlendModes.ADD)
                 .setDepth(15);
               this.tweens.add({
-                targets: crack,
-                scale: 2.5,
+                targets: hitSpark,
+                scale: 2.2,
                 alpha: 0,
                 duration: 160,
-                onComplete: () => crack.destroy(),
+                onComplete: () => hitSpark.destroy(),
               });
             }
+          });
+        }
+      },
+      onComplete: () => {
+        slashGfx.destroy();
+        // 적중 시 성스러운 회복 (느린 공속 보정)
+        if (hitAny && Phaser.Math.Between(1, 100) <= 40 && this.state.hp < this.state.maxHp) {
+          this.state.hp = Math.min(this.state.maxHp, this.state.hp + 4);
+          this.updateHUD();
+        }
+      },
+    });
 
-            // 흡혈
-            if (Phaser.Math.Between(1, 100) <= 14 && this.state.hp < this.state.maxHp) {
-              this.state.hp = Math.min(this.state.maxHp, this.state.hp + 2);
-              this.updateHUD();
-            }
-          }
-        });
-      });
+    // 묵직한 단발 쿨다운 (600ms)
+    this.time.delayedCall(600, () => {
+      this.state.canSlash = true;
     });
   }
 
@@ -2220,13 +2236,12 @@ class MainScene extends Phaser.Scene {
     this.player.clearTint();
 
     // 2. 현재 상태(form)에 맞는 고해상도 테두리 텍스처로 즉시 교체!
-    const texKey = `tex_${this.state.form}`;
-    if (this.textures.exists(texKey)) {
-      this.player.setTexture(texKey);
-    } else {
-      // 예외 처리 (혹시 텍스처가 없다면 기본 컬티스트 텍스처로)
-      this.player.setTexture('tex_MORTAL CULTIST');
-    }
+    const texKey =
+      this.state.form === 'THE FAITHLESS' && this.state.awakeningPath === 'GAMMA'
+        ? 'tex_THE FAITHLESS_GAMMA'
+        : `tex_${this.state.form}`;
+
+    this.player.setTexture(this.textures.exists(texKey) ? texKey : 'tex_MORTAL CULTIST');
   }
 
   // hitAngle의 기본값을 null로 설정 (null이면 넉백 없음!)
@@ -2449,71 +2464,72 @@ class MainScene extends Phaser.Scene {
   }
 
   triggerUndeadLastStand(x, y) {
-    if (this.state.isGameOver) return;
+    if (!this.player || !this.player.active || this.state.isGameOver) return;
 
-    // 1. 시체 자리에서 보라색 잔영 생성 (기상 연출)
-    const husk = this.add
-      .sprite(x, y, 'blood_sniper')
-      .setTint(0xc084fc) // ★ 몽환 보라
-      .setAlpha(0.25)
-      .setBlendMode(Phaser.BlendModes.ADD)
-      .setDepth(13);
+    const aimGfx = this.add.graphics().setDepth(10);
+    let lockedAngle = Phaser.Math.Angle.Between(x, y, this.player.x, this.player.y);
 
-    // 기상 중 맥동 (1.3초)
-    const pulseTween = this.tweens.add({
-      targets: husk,
-      alpha: 0.85,
-      scale: 1.15,
-      duration: 260,
-      yoyo: true,
-      repeat: 2,
-    });
+    // ★ 죽자마자 즉시 0.45초 조준 -> 발사 -> 소멸
+    this.tweens.addCounter({
+      from: 0,
+      to: 1,
+      duration: 450,
+      onUpdate: (tween) => {
+        if (!aimGfx.active || !this.player || !this.player.active || this.state.isGameOver) return;
+        const p = tween.getValue();
 
-    // 2. 1.3초 뒤: 플레이어 위치 조준 고정 + 붉은 레이저 0.7초간 표시
-    this.time.delayedCall(1300, () => {
-      if (this.state.isGameOver || !this.player || !this.player.active) {
-        husk.destroy();
-        return;
-      }
-
-      pulseTween.stop();
-      husk.setAlpha(0.95).setScale(1.1);
-
-      const lockAngle = Phaser.Math.Angle.Between(x, y, this.player.x, this.player.y);
-      husk.setRotation(lockAngle);
-
-      const warnLine = this.add
-        .graphics()
-        .setDepth(4)
-        .lineStyle(2, 0x67e8f9, 0.9) // ★ 마젠타 레이저
-        .lineBetween(x, y, x + Math.cos(lockAngle) * 520, y + Math.sin(lockAngle) * 520);
-
-      // 3. 총 2.0초 시점(0.7초 뒤): 최후의 저격탄 발사 및 소멸
-      this.time.delayedCall(700, () => {
-        warnLine.destroy();
-        if (this.state.isGameOver) {
-          husk.destroy();
-          return;
+        // 초반 65%만 추적하고, 발사 직전엔 각도 고정 (회피 타이밍 제공)
+        if (p < 0.65) {
+          lockedAngle = Phaser.Math.Angle.Between(x, y, this.player.x, this.player.y);
         }
 
+        aimGfx.clear();
+
+        // 발사 원점 빛점
+        aimGfx.fillStyle(0xffffff, 1 - p * 0.3);
+        aimGfx.fillCircle(x, y, 6 * (1 - p * 0.4));
+
+        // 조준선 (고정되는 순간 순백색으로 번쩍임)
+        const lineColor = p > 0.65 ? 0xffffff : 0x67e8f9;
+        aimGfx.lineStyle(3 * (1 - p * 0.5), lineColor, 0.35 + p * 0.6);
+        aimGfx.lineBetween(
+          x,
+          y,
+          x + Math.cos(lockedAngle) * 700,
+          y + Math.sin(lockedAngle) * 700
+        );
+      },
+      onComplete: () => {
+        aimGfx.destroy();
+        if (!this.player || !this.player.active || this.state.isGameOver) return;
+
+        // 순백+시안 달빛탄 발사
         const bolt = this.projectiles
-          .create(x, y, 'dream_bolt') // ★ 순백+시안 달빛탄 (초록색 변질 해결)
+          .create(x, y, 'dream_bolt')
           .setDepth(9)
           .setScale(1.3);
 
-        bolt.setVelocity(Math.cos(lockAngle) * 560, Math.sin(lockAngle) * 560);
-        this.time.delayedCall(2500, () => {
-          if (bolt && bolt.active) bolt.destroy();
+        const speed = 560;
+        bolt.setVelocity(Math.cos(lockedAngle) * speed, Math.sin(lockedAngle) * speed);
+        bolt.setRotation(lockedAngle);
+
+        // 발사 섬광 후 즉시 소멸
+        const flash = this.add
+          .circle(x, y, 10, 0x67e8f9, 0.8)
+          .setBlendMode(Phaser.BlendModes.ADD)
+          .setDepth(11);
+        this.tweens.add({
+          targets: flash,
+          scale: 2,
+          alpha: 0,
+          duration: 140,
+          onComplete: () => flash.destroy(),
         });
 
-        this.tweens.add({
-          targets: husk,
-          alpha: 0,
-          scale: 1.5,
-          duration: 240,
-          onComplete: () => husk.destroy(),
+        this.time.delayedCall(2200, () => {
+          if (bolt && bolt.active) bolt.destroy();
         });
-      });
+      },
     });
   }
 
@@ -2586,46 +2602,37 @@ class MainScene extends Phaser.Scene {
     }
   }
 
-  // ★ [2막 제단 선택 완료] 베타(β) 또는 감마(γ) 스탯/배율 적용
   triggerTier2Evolution(tierType) {
     if (this.state.awakeningTier >= 2) return;
     this.state.awakeningTier = 2;
     this.state.awakeningPath = tierType; // 'BETA' or 'GAMMA'
 
-    // 1. 제단 및 부속 텍스트/코어 깔끔하게 일괄 철거
+    // 1. 제단 및 부속 텍스트/코어 일괄 철거
     this.shrines.getChildren().forEach((s) => {
       if (s.decorations) s.decorations.forEach((d) => d.destroy());
     });
     this.shrines.clear(true, true);
 
-    // ★ [1.0 최종 밸런싱] 160킬 베타(-β) 폼별 체력 및 최종 데미지 배율
     const TIER2_STATS = {
-      // 1) 제단 3신 (안정적인 정통파)
-      CTHULHU: { betaHp: 50, betaMult: 1.25, gammaMult: 1.85 }, // 심해 중장갑 (총 MaxHP 180)
-      HASTUR: { betaHp: 35, betaMult: 1.3, gammaMult: 1.9 },    // 광역 CC 딜러 (총 MaxHP 155)
-      CTHUGHA: { betaHp: 40, betaMult: 1.3, gammaMult: 2.0 },   // 중거리 화염 지속딜러 (총 MaxHP 160)
-
-      // 2) 히든 신격 (고유 메커니즘 특화)
-      DAGON: { betaHp: 45, betaMult: 1.3, gammaMult: 1.85 },        // 반사 탱커 (총 MaxHP 170)
-      NODENS: { betaHp: 30, betaMult: 1.35, gammaMult: 2.0 },       // 4단 콤보 검성 (총 MaxHP 150)
-      NYARLATHOTEP: { betaHp: 30, betaMult: 1.35, gammaMult: 2.05 },// 폭주 암살자 (총 MaxHP 145)
-      'THE FAITHLESS': { betaHp: 25, betaMult: 1.2, gammaMult: 1.75 }, // 초고속 흡혈 광전사 (자체 1.15배 보유, 총 MaxHP 145)
-
-      // 3) 하드코어 순수 인간 (TRUE MORTAL 보상 극대화)
+      CTHULHU: { betaHp: 50, betaMult: 1.25, gammaMult: 1.85 },
+      HASTUR: { betaHp: 35, betaMult: 1.3, gammaMult: 1.9 },
+      CTHUGHA: { betaHp: 40, betaMult: 1.3, gammaMult: 2.0 },
+      DAGON: { betaHp: 45, betaMult: 1.3, gammaMult: 1.85 },
+      NODENS: { betaHp: 30, betaMult: 1.35, gammaMult: 2.0 },
+      NYARLATHOTEP: { betaHp: 30, betaMult: 1.35, gammaMult: 2.05 },
+      'THE FAITHLESS': { betaHp: 25, betaMult: 1.2, gammaMult: 1.75 },
       'MORTAL CULTIST': { betaHp: 40, betaMult: 1.5, gammaMult: 2.2 },
     };
 
-    const st = TIER2_STATS[this.state.form] || TIER2_STATS['MORTAL CULTIST'];
+    const form = this.state.form;
+    const st = TIER2_STATS[form] || TIER2_STATS['MORTAL CULTIST'];
+    const isJudgement = form === 'THE FAITHLESS' && tierType === 'GAMMA';
 
+    // 2. 베타 / 감마 스탯 및 특수 효과 적용
     if (tierType === 'BETA') {
-      // [β : 안정과 지배] 최대 체력 증가 + 풀피 회복 + 안정적 화력 상승
-
-      if (this.state.form === 'DAGON') {
-        this.player.body.setCircle(22, -6, -6); // 기본(16)보다 넓은 투사체 패링 반경 부여
-      }
-
-      // ★ [니알라토텝-β] 각성 즉시 영구적인 혼돈 폭주(Permanent Chaos) 상태 돌입!
-      if (this.state.form === 'NYARLATHOTEP') {
+      if (form === 'DAGON') {
+        this.player.body.setCircle(22, -6, -6);
+      } else if (form === 'NYARLATHOTEP') {
         this.enterChaosMode();
         this.chaosEndTime = Infinity;
       }
@@ -2633,43 +2640,43 @@ class MainScene extends Phaser.Scene {
       this.state.maxHp += st.betaHp;
       this.state.hp = this.state.maxHp;
       this.state.dmgMult = st.betaMult;
-      this.state.orbDropRate = 0.75; // 피구슬 스폰율 75%로 소폭 우대
+      this.state.orbDropRate = 0.75;
 
       this.cameras.main.flash(600, 56, 189, 248);
       this.cameras.main.shake(450, 0.02);
 
-      this.hudGuide
-        .setText(
-          `[Beta Awakening] Divine control increases! (DAMAGE x${st.betaMult})`
-        )
-        .setColor('#38bdf8');
+      if (form === 'THE FAITHLESS') {
+        this.hudGuide
+          .setText(`[The Butcher] Blood-slashes rage! Harvest your foes like a vampire. (DAMAGE x${st.betaMult})`)
+          .setColor('#ef4444');
+      } else {
+        this.hudGuide
+          .setText(`[Beta Awakening] Divine control increases! (DAMAGE x${st.betaMult})`)
+          .setColor('#38bdf8');
+      }
     } else if (tierType === 'GAMMA') {
-      // ★ 입장 시 이미 체력 패널티를 치렀으므로, 여기서는 체력을 깎지 않고 풀피 회복 + 화력 폭증만 부여
       this.state.hp = this.state.maxHp;
       this.state.dmgMult = st.gammaMult;
-      this.state.orbDropRate = 0.35; // 피구슬 스폰율 35% 유지
+      this.state.orbDropRate = 0.35;
 
-      this.cameras.main.flash(750, 220, 38, 38);
-      this.cameras.main.shake(700, 0.035);
-
-      this.hudGuide
-        .setText(
-          `⚠️ [γ-Awakening: Tainted Madness] Ruinous power unleashed! (DAMAGE x${st.gammaMult})`
-        )
-        .setColor('#f43f5e');
-    }
-
-    if (this.state.form === 'THE FAITHLESS') {
-      if (tierType === 'BETA') {
-        this.hudGuide.setText(`[The Butcher] Blood-slashes rage! Harvest your foes like a vampire. (DAMAGE x${st.betaMult})`).setColor('#ef4444');
+      if (isJudgement) {
+        if (this.redEyeEmitter) this.redEyeEmitter.emitting = false; // 붉은 살기 파티클 해제
+        this.cameras.main.flash(750, 250, 204, 21); // 황금빛 성광 플래시
+        this.cameras.main.shake(600, 0.03);
+        this.hudGuide
+          .setText(`⚖️ [The Judgement] Wield the holy greatsword of reckoning! (DAMAGE x${st.gammaMult})`)
+          .setColor('#facc15');
       } else {
-        this.hudGuide.setText(`⚠️ [The Judgement] 이단 심문관들을 직접 단죄합니다! 공격 속도가 한계를 돌파합니다. (데미지 x${st.gammaMult})`).setColor('#f43f5e');
+        this.cameras.main.flash(750, 220, 38, 38);
+        this.cameras.main.shake(700, 0.035);
+        this.hudGuide
+          .setText(`⚠️ [γ-Awakening: Tainted Madness] Ruinous power unleashed! (DAMAGE x${st.gammaMult})`)
+          .setColor('#f43f5e');
       }
     }
 
-
-    // 3. 플레이어 중심 각성 충격파 링 연출 & 주변 적 넉백
-    const ringColor = tierType === 'GAMMA' ? 0xff003c : 0x38bdf8;
+    // 3. 각성 충격파 링 & 주변 적 넉백
+    const ringColor = isJudgement ? 0xfacc15 : tierType === 'GAMMA' ? 0xff003c : 0x38bdf8;
     const waveRing = this.add
       .circle(this.player.x, this.player.y, 20, ringColor, 0.5)
       .setStrokeStyle(4, 0xffffff, 1)
@@ -2687,15 +2694,12 @@ class MainScene extends Phaser.Scene {
 
     this.enemies.getChildren().forEach((e) => {
       if (!e.active) return;
-      const a = Phaser.Math.Angle.Between(
-        this.player.x,
-        this.player.y,
-        e.x,
-        e.y
-      );
+      const a = Phaser.Math.Angle.Between(this.player.x, this.player.y, e.x, e.y);
       e.setVelocity(Math.cos(a) * 480, Math.sin(a) * 480);
     });
 
+    // 4. ★ 진화 직후 외형 텍스처 즉시 교체 & HUD 갱신
+    this.restoreFormTint();
     this.updateHUD();
   }
 
@@ -4522,6 +4526,25 @@ class MainScene extends Phaser.Scene {
     // ========================================================================
     if (form === 'NODENS' || form === 'THE FAITHLESS') {
       if (tier === 0) return;
+
+      // ★ 무신앙자 감마: 붉은 혈기 대신 성스러운 황금 광배 링 + 4방향 십자 빛기둥 회전
+      if (form === 'THE FAITHLESS' && this.state.awakeningPath === 'GAMMA') {
+        const rot = time * 0.0025;
+        this.tentacleGfx.lineStyle(2, 0xfacc15, 0.75);
+        this.tentacleGfx.strokeCircle(this.player.x, this.player.y, 24);
+
+        this.tentacleGfx.lineStyle(2, 0xfef08a, 0.9);
+        for (let i = 0; i < 4; i++) {
+          const a = rot + (i * Math.PI) / 2;
+          this.tentacleGfx.lineBetween(
+            this.player.x + Math.cos(a) * 19,
+            this.player.y + Math.sin(a) * 19,
+            this.player.x + Math.cos(a) * 30,
+            this.player.y + Math.sin(a) * 30
+          );
+        }
+        return;
+      }
       const isNodens = form === 'NODENS';
       const bladeCount = tier * 2;
       this.tentacleGfx.lineStyle(2, isNodens ? 0x38bdf8 : 0xef4444, 0.8);
