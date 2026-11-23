@@ -473,8 +473,22 @@ class MainScene extends Phaser.Scene {
         const py = 700;
         this.startAct2Phase(px, py);
       },
-      150: () => this.triggerWaveEscalation2(), // ★ 150킬: 공허의 침식 & 2막 적 강화!
-      160: () => this.triggerTier2Evolution(this.state.isTaintedAct2 ? 'GAMMA' : 'BETA'),
+
+      150: () => {
+        if (this.state.isTaintedAct2) {
+          this.spawnDreamMidBoss(); // ★ 드림랜드: 중간 보스 강림
+        } else {
+          this.triggerWaveEscalation2();  // 기존 심해 루트: 공허 폭주 (기존 150킬 로직)
+        }
+      },
+
+      // ritualEvents[160] 수정
+      160: () => {
+        // ★ 드림랜드는 중간 보스 처치 시 감마 진화하므로 160킬에서는 일반 루트(BETA)만 실행
+        if (!this.state.isTaintedAct2) {
+          this.triggerTier2Evolution('BETA');
+        }
+      },
       200: () => this.spawnGreatDeepOne(), // ★ 200킬: 그레이트 딥 원 강림!
     };
 
@@ -2331,8 +2345,8 @@ class MainScene extends Phaser.Scene {
       this.spawnBurningSoul(enemy.x, enemy.y);
     }
 
-    const decalColor = this.state.isTaintedAct2 ? 0x6b21a8 : 0x660000;
-    this.bloodDecalGfx.fillStyle(decalColor, this.state.isTaintedAct2 ? 0.5 : 0.45);
+    const decalColor = this.state.isTaintedAct2 ? 0xd946ef : 0x660000;
+    this.bloodDecalGfx.fillStyle(decalColor, this.state.isTaintedAct2 ? 0.7 : 0.45);
 
     // ★ 고정값 0.7 대신 this.state.orbDropRate 사용 (감마 선택 시 0.35로 작동!)
     if (Math.random() < (this.state.orbDropRate ?? 0.7)) {
@@ -2354,10 +2368,16 @@ class MainScene extends Phaser.Scene {
       return;
     } else {
       if (enemy.isBloodSniper && Math.random() < 1 / 3) {
-  this.triggerUndeadLastStand(enemy.x, enemy.y);
-}
+        this.triggerUndeadLastStand(enemy.x, enemy.y);
+      }
+      enemy.destroy();
+    };
+   
+    if (enemy.isDreamMidBoss) {
+      this.onDreamMidBossDefeated();
       enemy.destroy();
     }
+
     this.state.kills++;
     this.updateHUD();
 
@@ -5289,42 +5309,85 @@ class MainScene extends Phaser.Scene {
   // 조준 레이저 (0.7초간 유지 후 발사 직전 번쩍임)
   const laser = this.add
     .graphics()
-    .setDepth(4)
-    .lineStyle(2, 0xff003c, 0.75)
-    .lineBetween(
-      e.x,
-      e.y,
-      e.x + Math.cos(lockAngle) * 520,
-      e.y + Math.sin(lockAngle) * 520
-    );
+      .setDepth(4)
+      .lineStyle(2, 0x67e8f9, 0.9)
+      .lineBetween(
+        e.x,
+        e.y,
+        e.x + Math.cos(lockAngle) * 520,
+        e.y + Math.sin(lockAngle) * 520
+      );
 
-  this.time.delayedCall(700, () => {
-    laser.destroy();
-    // ★ 카운터로 캔슬되길 원하면 (!e.active || !e.isWindingUp) 유지
-    if (!e || !e.active || !e.isWindingUp) return;
+    this.time.delayedCall(700, () => {
+      laser.destroy();
+      // ★ 카운터로 캔슬되길 원하면 (!e.active || !e.isWindingUp) 유지
+      if (!e || !e.active || !e.isWindingUp) return;
 
-    e.isWindingUp = false;
-    e.clearTint();
+      e.isWindingUp = false;
+      e.clearTint();
 
-    // 실제 고속 저격탄 발사
-    const bolt = this.projectiles
-      .create(e.x, e.y, 'holy_bolt')
-      .setDepth(9)
-      .setTint(0xff003c)
-      .setScale(1.4);
+      // 실제 고속 저격탄 발사
+      const bolt = this.projectiles
+        .create(e.x, e.y, 'holy_bolt')
+        .setDepth(9)
+        .setTint(0x67e8f9)
+        .setScale(1.4);
 
-    bolt.setVelocity(Math.cos(lockAngle) * 540, Math.sin(lockAngle) * 540);
-    this.time.delayedCall(2500, () => {
-      if (bolt && bolt.active) bolt.destroy();
+      bolt.setVelocity(Math.cos(lockAngle) * 540, Math.sin(lockAngle) * 540);
+      this.time.delayedCall(2500, () => {
+        if (bolt && bolt.active) bolt.destroy();
+      });
+
+      // 발사 후 1.6초 쿨타임
+      e.isAttacking = true;
+      this.time.delayedCall(1600, () => {
+        if (e && e.active) e.isAttacking = false;
+      });
     });
+  }
 
-    // 발사 후 1.6초 쿨타임
-    e.isAttacking = true;
-    this.time.delayedCall(1600, () => {
-      if (e && e.active) e.isAttacking = false;
-    });
-  });
-}
+  spawnDreamMidBoss() {
+    if (this.state.isGameOver) return;
+
+    // 1. 등장 연출
+    this.cameras.main.flash(500, 254, 240, 138);
+    this.cameras.main.shake(450, 0.02);
+    this.hudGuide
+      .setText('🌙 [MID-BOSS] Warden of Kadath descends! Defeat it to claim Gamma Awakening.')
+      .setColor('#fef08a');
+
+    // 2. 중간 보스 생성 (맵 중앙 기준 플레이어 반대편 또는 상단)
+    const bx = 700;
+    const by = this.player.y > 700 ? 320 : 1080;
+
+    const midBoss = this.enemies
+      .create(bx, by, 'blood_sniper')
+      .setScale(2.2)
+      .setTint(0xfef08a)
+      .setDepth(10)
+      .setCollideWorldBounds(true);
+
+    midBoss.body.setCircle(14, 4, 4);
+    midBoss.hp = 650; // 감마 진화 전 화력 기준 적정 체력 (테스트 후 조정)
+    midBoss.baseSpeed = 85;
+    midBoss.isRanged = true;
+    midBoss.isBloodSniper = true; // 기존 저격 AI 재활용
+    midBoss.isDreamMidBoss = true; // ★ 처치 판별용 플래그
+  }
+
+  onDreamMidBossDefeated() {
+    // 1. 즉시 감마 진화 발동
+    this.triggerTier2Evolution('GAMMA');
+
+    // 2. 200킬까지 드림랜드 적 강화 (스폰 속도 & 스탯 상향)
+    this.state.isAct2Escalated = true;
+    if (this.deepOneTimer) this.deepOneTimer.delay = 650;    // 나이트건트 스폰 가속
+    if (this.voidCallerTimer) this.voidCallerTimer.delay = 2000; // 문비스트 스폰 가속
+
+    this.hudGuide
+      .setText('⚡ [GAMMA AWAKENED] The Dreamlands tremble! Enemies grow fiercer until 200 kills.')
+      .setColor('#f43f5e');
+  }
 
   checkWaveAcceleration() {
     if (this.state.isBossSpawned || this.state.isAct2Waiting || this.state.isGameOver) return;
@@ -7339,7 +7402,10 @@ class MainScene extends Phaser.Scene {
       this.act1BgGfx.destroy();
       this.act1BgGfx = null;
     }
-    if (this.bloodDecalGfx) this.bloodDecalGfx.clear();
+    if (this.bloodDecalGfx) {
+      this.bloodDecalGfx.clear();
+      this.bloodDecalGfx.setDepth(-6);
+    }
 
     const worldW = 1400;
     const worldH = 1400;
@@ -7349,16 +7415,16 @@ class MainScene extends Phaser.Scene {
     // ★ 루트별 컬러 팔레트 세팅 (사후 황무지 vs 심해 르뤼에)
     const pal = isTainted
       ? {
-        bgHex: '#0d0618',      // 깊은 심야 보라
-        bgNum: 0x0d0618,
-        slab: 0x24143a,        // 몽환의 석판
-        crack: 0x581c87,       // 자수정빛 균열선
-        center: 0xa855f7,      // 중앙 몽환 마법진
-        pillarBg: 0x170b29,
-        rune: 0xe2e8f0,        // 창백한 은빛 달빛 룬
-        particles: [0xe2e8f0, 0xc084fc, 0x818cf8, 0xf472b6], // 은빛 성운 + 보라 안개
+        bgHex: '#352e4d',      // 밝은 새벽빛 라벤더 슬레이트 (기존 #0d0618에서 대폭 상향)
+        bgNum: 0x352e4d,
+        slab: 0x524775,        // 밝은 대리석 석판 테두리
+        crack: 0x7c6fa6,       // 은은하게 빛나는 석판 틈새
+        center: 0xfde68a,      // 몽환적인 옅은 금빛 중앙 마법진
+        pillarBg: 0x453b66,    // 대리석 기둥
+        rune: 0xfef08a,        // 따뜻한 달빛/금빛 룬
+        particles: [0xffffff, 0xfef08a, 0xe9d5ff, 0x93c5fd], // 하얀 성운 + 금빛 가루
         title: 'ACT II [DREAMLANDS] : Unknown Kadath\nTHE DREAMLANDS',
-        titleColor: '#d8b4fe',
+        titleColor: '#fef08a',
         guide: '🌙 [THE DREAMLANDS] Half your vitality remains in the waking world. Survive for Gamma Awakening.',
       }
       : {
